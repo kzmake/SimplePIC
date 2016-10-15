@@ -9,16 +9,16 @@
 // static
 namespace
 {
-    constexpr std::string PATH("data/");
+    const std::string PATH("data/");
 
     constexpr int MAX_TIME_STEP = 100;
     constexpr int OUTPUT_STEP   = 1;
     constexpr int PARTICLE_SORT = 100;
 
     // system
-    constexpr int LX0 = 50;
-    constexpr int LY0 = 50;
-    constexpr int LZ0 = 50;
+    constexpr int LX0 = 10;
+    constexpr int LY0 = 10;
+    constexpr int LZ0 = 5;
     constexpr int LX = LX0 + 5;
     constexpr int LY = LY0 + 5;
     constexpr int LZ = LZ0 + 5;
