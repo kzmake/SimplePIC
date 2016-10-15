@@ -1,7 +1,8 @@
-!.gitkeep
 data/*
 plot/*
 *.out
 ~*
 *.log
 .DS_Store
+
+!.gitkeep
