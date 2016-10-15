@@ -25,28 +25,19 @@ class Solver
   public:
     Solver()
     {
-        auto CreateArray = [](const int x, const int y, const int z)
+        try
         {
-	        Vector*** v  = new Vector** [x];
-	        v[0]         = new Vector*  [x * y];
-	        v[0][0]      = new Vector   [x * y * z];
-
-	        for (int i = 0; i < x; ++i)
-	        {
-		        v[i] = v[0] + i * y;
-
-		        for (int j = 0; j < y; ++j)
-		        {
-			        v[i][j] = v[0][0] + i * y * z + j * z;
-		        }
-	        }
-
-	        return v;
-        };
-
-        J  = CreateArray(LX, LY, LZ);
-        Ec = CreateArray(LX, LY, LZ);
-        Bc = CreateArray(LX, LY, LZ);
+            J  = CreateArray(LX, LY, LZ);
+            Ec = CreateArray(LX, LY, LZ);
+            Bc = CreateArray(LX, LY, LZ);
+        }
+        catch(std::bad_alloc)
+        {
+            std::cerr << "bad_alloc " << __FILE__ << "動的メモリ確保エラー" << std::endl;  
+            DeleteArray(E);
+            DeleteArray(B);
+            abort();
+        }
 
         for (int i = 0; i < LX; ++i)
 	    for (int j = 0; j < LY; ++j)
@@ -66,17 +57,36 @@ class Solver
     }
     ~Solver()
     {
-        auto DeleteArray = [](auto***& v)
-        {
-            delete[] v[0][0];
-            delete[] v[0];
-            delete[] v;
-            v = nullptr;
-        };
-
         DeleteArray(J);
         DeleteArray(Ec);
         DeleteArray(Bc);
+    }
+
+    Vector*** CreateArray(const int x, const int y, const int z)
+    {
+        Vector*** v  = new Vector** [x];
+        v[0]         = new Vector*  [x * y];
+        v[0][0]      = new Vector   [x * y * z]();
+
+        for (int i = 0; i < x; ++i)
+        {
+            v[i] = v[0] + i * y;
+
+            for (int j = 0; j < y; ++j)
+            {
+                v[i][j] = v[0][0] + i * y * z + j * z;
+            }
+        }
+
+        return v;
+    }
+
+    void DeleteArray(Vector***& v)
+    {
+        delete[] v[0][0];
+        delete[] v[0];
+        delete[] v;
+        v = nullptr;
     }
 
     void DensityDecomposition(Plasma& plasma, Field& field)
