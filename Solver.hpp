@@ -2,6 +2,7 @@
 #define SIMPLE_PIC_SOLVER_HPP
 
 #include <vector>
+#include <cstdlib>
 
 #include "Param.hpp"
 
@@ -33,9 +34,9 @@ class Solver
         }
         catch(std::bad_alloc)
         {
-            std::cerr << "bad_alloc " << __FILE__ << "動的メモリ確保エラー" << std::endl;  
-            DeleteArray(E);
-            DeleteArray(B);
+            fprintf(stderr, "エラー: bad_alloc 動的メモリ確保エラー: %s\n", __FILE__); 
+            DeleteArray(J);
+            DeleteArray(Ec);
             abort();
         }
 

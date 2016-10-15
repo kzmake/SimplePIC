@@ -1,6 +1,8 @@
 #ifndef SIMPLE_PIC_FIELD_HPP
 #define SIMPLE_PIC_FIELD_HPP
 
+#include <cstdlib>
+
 #include "Param.hpp"
 #include "Vector.hpp"
 
@@ -20,7 +22,7 @@ class Field
         }
         catch(std::bad_alloc)
         {
-            std::cerr << "bad_alloc " << __FILE__ << "動的メモリ確保エラー" << std::endl;  
+            fprintf(stderr, "エラー: bad_alloc 動的メモリ確保エラー: %s\n", __FILE__);
             DeleteArray(E);
             DeleteArray(B);
             abort();
