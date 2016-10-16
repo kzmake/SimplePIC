@@ -11,9 +11,9 @@ namespace
 {
     const std::string PATH("data/");
 
-    constexpr int MAX_TIME_STEP = 100;
+    constexpr int MAX_TIME_STEP = 2000;
     constexpr int OUTPUT_STEP   = 1;
-    constexpr int PARTICLE_SORT = 100;
+    constexpr int PARTICLE_SORT = 10;
 
     // system
     constexpr int LX0 = 100;

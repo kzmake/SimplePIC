@@ -20,7 +20,7 @@ int main()
 
     Input(p, f);
 
-    Output(p, f, 0);
+    Output(p, f, s, 0);
 
     for(int ts = 1; ts <= MAX_TIME_STEP; ++ts)
     {
@@ -70,7 +70,7 @@ int main()
             p[n].BoundaryR();
         }
 
-        if (ts % OUTPUT_STEP == 0) Output(p, f, ts);
+        Output(p, f, s, ts);
     } 
 
     return 0;

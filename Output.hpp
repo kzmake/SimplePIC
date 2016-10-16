@@ -11,8 +11,8 @@ FILE* energyElesK_fp = nullptr;
 FILE* energyE_fp     = nullptr;
 FILE* energyB_fp     = nullptr;
 
-
-void Output(std::vector<Plasma>& plasma, Field& field, const int ts)
+template<Shape SF>
+void Output(std::vector<Plasma>& plasma, Field& field, Solver<SF>& solver, const int ts)
 {
     Vector energyB, energyE;
 
@@ -96,9 +96,12 @@ void Output(std::vector<Plasma>& plasma, Field& field, const int ts)
         fclose(fp);
     };
 
-    WriteField("f_e", field.E, ts);
-    WriteField("f_b", field.B, ts);
-
+    if (ts % OUTPUT_STEP == 0)
+    {
+        WriteField("f_e",  field.E, ts);
+        WriteField("f_b",  field.B, ts);
+        WriteField("f_j", solver.J, ts);
+    }
 
     double ions = energyK[0].x + energyK[0].y + energyK[0].z;
     double eles = energyK[1].x + energyK[1].y + energyK[1].z;
