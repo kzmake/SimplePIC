@@ -56,7 +56,7 @@ void Input(std::vector<Plasma>& p, Field& f)
 {
     const long int seed = 1000;
 
-    const int NUM_DENS = 5;
+    const int NUM_DENS = 10;
     const int MASS_RATIO = 100;
     const double wpe = 0.50;
 
@@ -102,17 +102,22 @@ void Input(std::vector<Plasma>& p, Field& f)
 		r.y = Y0 + j + dist(mt);
         r.z = Z0 + k + dist(mt);
 
+ION_VELO:
         vi.x = randomBoxMuller(dist(mt), dist(mt));
 		vi.y = randomBoxMuller(dist(mt), dist(mt));
-		vi.z = randomBoxMuller(dist(mt), dist(mt));
+		vi.z = 6.0 * randomBoxMuller(dist(mt), dist(mt));
+        vi *= std_devi_i;
+        
+        if (vi.Mag2() > C2) goto ION_VELO;
 
+ELE_VELO:
         ve.x = randomBoxMuller(dist(mt), dist(mt));
 		ve.y = randomBoxMuller(dist(mt), dist(mt));
-		ve.z = randomBoxMuller(dist(mt), dist(mt));
-
-        vi *= std_devi_i;
+		ve.z = 6.0 * randomBoxMuller(dist(mt), dist(mt));
         ve *= std_devi_e;
 
+        if (ve.Mag2() > C2) goto ELE_VELO;
+        
         Particle ion(id, r, vi);
 		Particle ele(id, r, ve);
 

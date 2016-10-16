@@ -16,9 +16,9 @@ namespace
     constexpr int PARTICLE_SORT = 100;
 
     // system
-    constexpr int LX0 = 10;
-    constexpr int LY0 = 10;
-    constexpr int LZ0 = 5;
+    constexpr int LX0 = 100;
+    constexpr int LY0 = 100;
+    constexpr int LZ0 = 25;
     constexpr int LX = LX0 + 5;
     constexpr int LY = LY0 + 5;
     constexpr int LZ = LZ0 + 5;
