@@ -24,7 +24,7 @@ int main()
 
     for(int ts = 1; ts <= MAX_TIME_STEP; ++ts)
     {
-        //printf("%d\n", ts);
+        printf("%d\n", ts);
 
         f.UpdateB();
         f.BoundaryB();
