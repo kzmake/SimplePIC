@@ -30,7 +30,7 @@ int main()
         f.BoundaryB();
         
         s.CalcOnCenter(f);
-        for(int n = 0; n < p.size(); ++n)
+        for(unsigned int n = 0; n < p.size(); ++n)
         {
             s.BunemanBoris(p[n]);
         }
@@ -41,7 +41,7 @@ int main()
         f.UpdateE();
 
 
-        for(int n = 0; n < p.size(); ++n)
+        for(unsigned int n = 0; n < p.size(); ++n)
         {
             //s.VillasenorBuneman(p[n]);
             s.DensityDecomposition(p[n], f);
@@ -64,7 +64,7 @@ int main()
 
         f.BoundaryE();
 
-        for(int n = 0; n < p.size(); ++n)
+        for(unsigned int n = 0; n < p.size(); ++n)
         {  
             p[n].UpdateR();
             p[n].BoundaryR();

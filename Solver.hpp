@@ -94,7 +94,7 @@ class Solver
     {
         std::vector<Particle>& p = plasma.p;
 
-        for (long int n = 0; n < p.size(); ++n)
+        for (unsigned long int n = 0; n < p.size(); ++n)
         {
             Vector r0 = p[n].r;
             Vector r1 = p[n].r + p[n].v;
@@ -284,7 +284,7 @@ class Solver
         
         std::vector<Particle> &p = plasma.p;
 
-        for (long int n = 0; n < p.size(); ++n)
+        for (unsigned long int n = 0; n < p.size(); ++n)
         {
             if (n == 100)
             {
@@ -370,7 +370,7 @@ class Solver
         std::vector<Particle> &p = plasma.p;
         //printf("  >plasma.q = %f, plasma.p.size(%ld)\n", plasma.q, p.size());
 
-        for (long int n = 0; n < p.size(); ++n)
+        for (unsigned long int n = 0; n < p.size(); ++n)
         {
             r = p[n].r + p[n].v;
 

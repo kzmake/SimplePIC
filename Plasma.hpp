@@ -24,12 +24,12 @@ class Plasma
 
     void UpdateR()
     {
-        for (long int n = 0; n < p.size(); ++n) { p[n].r += p[n].v; }
+        for (unsigned long int n = 0; n < p.size(); ++n) { p[n].r += p[n].v; }
     }
     
     void BoundaryR()
     {
-        for (long int n = 0; n < p.size(); ++n)
+        for (unsigned long int n = 0; n < p.size(); ++n)
         {
             if (p[n].r.x >= X1) { p[n].r.x -= LX0; }
 	        if (p[n].r.x <  X0) { p[n].r.x += LX0; }

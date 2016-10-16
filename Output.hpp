@@ -40,11 +40,11 @@ void Output(std::vector<Plasma>& plasma, Field& field, const int ts)
 
     Vector energyK[2];
     double energyR[2];
-    for(int s = 0; s < plasma.size(); ++s)
+    for(unsigned int s = 0; s < plasma.size(); ++s)
     {
         energyK[s].Zero();
         std::vector<Particle> &p = plasma[s].p;
-        for (long int n = 0; n < p.size(); ++n)
+        for (unsigned long int n = 0; n < p.size(); ++n)
         {
             v2.x = p[n].v.x * p[n].v.x;
             v2.y = p[n].v.y * p[n].v.y;
