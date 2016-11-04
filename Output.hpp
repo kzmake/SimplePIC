@@ -1,19 +1,79 @@
 #ifndef SIMPLE_PIC_OUTPUT_HPP
 #define SIMPLE_PIC_OUTPUT_HPP
 
-static const std::string kFilenameEnergyIonsK = PATH + "energy_ions_k" + ".txt";
-static const std::string kFilenameEnergyElesK = PATH + "energy_eles_k" + ".txt";
-static const std::string kFilenameEnergyE = PATH + "energy_f_e" + ".txt";
-static const std::string kFilenameEnergyB = PATH + "energy_f_b" + ".txt";
-
-FILE* energyIonsK_fp = nullptr;
-FILE* energyElesK_fp = nullptr;
-FILE* energyE_fp     = nullptr;
-FILE* energyB_fp     = nullptr;
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
+#include <boost/foreach.hpp>
+#include <boost/optional.hpp>
 
 template<Shape SF>
-void Output(std::vector<Plasma>& plasma, Field& field, Solver<SF>& solver, const int ts)
+void OutputProfile(std::vector<Plasma>& plasma, Field& field, Solver<SF>& solver)
 {
+
+    if (MPI::COMM_WORLD.Get_rank() == 0)
+    {
+        std::string filename("");
+        filename += PATH + "profile.json";
+
+        // JSON
+        boost::property_tree::ptree pt;
+        {
+            bool enabledMpi;
+#ifdef MPI_PIC
+            enabledMpi = true;
+#else
+            enabledMpi = false;
+#endif
+            pt.put("MPI.enabled", enabledMpi);
+
+#ifdef MPI_PIC
+            pt.put("MPI.size", MPI::COMM_WORLD.Get_size());
+#endif
+
+            pt.put("PIC.density",    NUM_DENS);
+            pt.put("PIC.C"      ,           C);
+            pt.put("PIC.rseed"  , RANDOM_SEED);
+
+            pt.put("PIC.shapefactor", SF);
+
+            pt.put("PIC.LX0", LX0);
+            pt.put("PIC.LY0", LY0);
+            pt.put("PIC.LZ0", LZ0);
+
+            pt.put("PIC.timestep.max" , MAX_TIME_STEP);
+            pt.put("PIC.timestep.step",   OUTPUT_STEP);
+
+            boost::property_tree::ptree particles;
+            {
+                boost::property_tree::ptree ele;
+                ele.put("mass", ELE_MASS);
+                ele.put("wpe" ,  ELE_WPE);
+                ele.put("q"   ,    ELE_Q);
+                ele.put("vth" ,  ELE_VTH);
+
+                particles.push_back(std::make_pair("ele", ele));
+            }
+            {
+                boost::property_tree::ptree ion;
+                ion.put("mass", ION_MASS);
+                ion.put("wpe" ,  ION_WPE);
+                ion.put("q"   ,    ION_Q);
+                ion.put("vth" ,  ION_VTH);
+
+                particles.push_back(std::make_pair("ion", ion));
+            }
+
+            pt.add_child("PIC.particle", particles);
+            pt.put("PIC.particle.size", plasma[0].p.size());
+        }
+
+        boost::property_tree::write_json(filename, pt);
+    }
+}
+
+template<Shape SF>
+void Output(std::vector<Plasma>& plasma, Field& field, Solver<SF>& solver, boost::timer::cpu_timer& timer, const int ts)
+{    
     Vector energyB, energyE;
 
     energyB.Zero();
@@ -34,14 +94,12 @@ void Output(std::vector<Plasma>& plasma, Field& field, Solver<SF>& solver, const
     energyB *= 0.5;
     energyE *= 0.5;
 
-
-
-    Vector v2;
-
     Vector energyK[2];
     double energyR[2];
     for(unsigned int s = 0; s < plasma.size(); ++s)
     {
+        Vector v2;
+
         energyK[s].Zero();
         std::vector<Particle> &p = plasma[s].p;
         for (unsigned long int n = 0; n < p.size(); ++n)
@@ -58,43 +116,83 @@ void Output(std::vector<Plasma>& plasma, Field& field, Solver<SF>& solver, const
         energyR[s] *= (plasma[s].m * C2);
     }
 
+    auto MPIReduceSumEnergy = [](auto& energy)
+    {
+        double totalEnergy[3] = {};
+
+        MPI::COMM_WORLD.Allreduce(&energy, &totalEnergy, sizeof(energy)/sizeof(double), MPI::DOUBLE, MPI::SUM);
+
+        memcpy(&energy, &totalEnergy, sizeof(energy));
+    };
+
+    MPIReduceSumEnergy(energyB);
+    MPIReduceSumEnergy(energyE);
+
+    for(unsigned int s = 0; s < plasma.size(); ++s)
+    {
+        MPIReduceSumEnergy(energyK[s]);
+        MPIReduceSumEnergy(energyR[s]);
+    }
 
     auto WriteEnegy = [](FILE*& fp, const std::string& filename, const Vector& v, const int ts)
     {
-        if(fp == nullptr) 
-            fp = fopen(filename.c_str(), "w+");
+        if(fp == nullptr) fp = fopen(filename.c_str(), "w+");
 
-        fprintf(fp, "%d \t %e \t %e \t %e \t\n", ts, v.x, v.y, v.z);
+        fprintf(fp, "%d\t%e\t%e\t%e\n", ts, v.x, v.y, v.z);
 
         if(ts == MAX_TIME_STEP) fclose(fp);
     };
 
-    WriteEnegy(energyB_fp, kFilenameEnergyB, energyB, ts);
-    WriteEnegy(energyE_fp, kFilenameEnergyE, energyE, ts);
-    WriteEnegy(energyIonsK_fp, kFilenameEnergyIonsK, energyK[0], ts);
-    WriteEnegy(energyElesK_fp, kFilenameEnergyElesK, energyK[1], ts);
+    auto WriteEnegyR = [](FILE*& fp, const std::string& filename, const double& v, const int ts)
+    {
+        if(fp == nullptr) fp = fopen(filename.c_str(), "w+");
 
+        fprintf(fp, "%d\t%e\n", ts, v);
 
+        if(ts == MAX_TIME_STEP) fclose(fp);
+    };
 
     auto WriteField = [](const std::string s, Vector*** V, const int ts)
     {
-        char cts[8];
-        sprintf(cts, "%06d", ts);
+        char cts[8], crank[4];
+        snprintf(cts, sizeof(cts), "%06d", ts);
+        snprintf(crank, sizeof(crank), "%02d", MPI::COMM_WORLD.Get_rank());
         std::string filename("");
-        filename += PATH + s + cts + ".txt";
+        filename += PATH + s + "/" + s + cts + "_r" + crank + ".txt";
         FILE *fp;
         fp = fopen(filename.c_str(), "w+");
 
-        for (int i = X0; i < X1; ++i)
-        for (int j = X0; j < Y1; ++j)
-        //for (int k = 0; k < LZ; ++k)
-        {
-            int k = Z0 + LZ0/2;
-            fprintf(fp, "%e \t %e \t %e \t\n", V[i][j][k].x, V[i][j][k].y, V[i][j][k].z);
-        }
+        fwrite(&V[X0+LX0/2][0][0], sizeof(double) * 3, LY*LZ, fp);
+
+        //fwrite(&v[0][0][0], sizeof(double), LX*LY*LZ, fp);
         
         fclose(fp);
     };
+
+    if (MPI::COMM_WORLD.Get_rank() == 0)
+    {
+        static const std::string kFilenameEnergyIonsK = PATH + "energy_ions_k" + ".txt";
+        static const std::string kFilenameEnergyElesK = PATH + "energy_eles_k" + ".txt";
+        static const std::string kFilenameEnergyIonsR = PATH + "energy_ions_r" + ".txt";
+        static const std::string kFilenameEnergyElesR = PATH + "energy_eles_r" + ".txt";
+        static const std::string kFilenameEnergyE = PATH + "energy_f_e" + ".txt";
+        static const std::string kFilenameEnergyB = PATH + "energy_f_b" + ".txt";
+
+        static FILE* energyIonsK_fp = nullptr;
+        static FILE* energyElesK_fp = nullptr;
+        static FILE* energyIonsR_fp = nullptr;
+        static FILE* energyElesR_fp = nullptr;
+        static FILE* energyE_fp     = nullptr;
+        static FILE* energyB_fp     = nullptr;
+
+
+        WriteEnegy(energyB_fp, kFilenameEnergyB, energyB, ts);
+        WriteEnegy(energyE_fp, kFilenameEnergyE, energyE, ts);
+        WriteEnegy(energyIonsK_fp, kFilenameEnergyIonsK, energyK[0], ts);
+        WriteEnegy(energyElesK_fp, kFilenameEnergyElesK, energyK[1], ts);
+        WriteEnegyR(energyIonsR_fp, kFilenameEnergyIonsR, energyR[0], ts);
+        WriteEnegyR(energyElesR_fp, kFilenameEnergyElesR, energyR[1], ts);
+    }
 
     if (ts % OUTPUT_STEP == 0)
     {
@@ -103,15 +201,22 @@ void Output(std::vector<Plasma>& plasma, Field& field, Solver<SF>& solver, const
         WriteField("f_j", solver.J, ts);
     }
 
-    double ions = energyK[0].x + energyK[0].y + energyK[0].z;
-    double eles = energyK[1].x + energyK[1].y + energyK[1].z;
-    double b = energyB.x + energyB.y + energyB.z;
-    double e = energyE.x + energyE.y + energyE.z;
-    //printf("=====\n");
-    printf("E:%f  B:%f  ions:%f  eles%f  (%f)\n", e, b, ions, eles, ions + eles + e + b);
-    //printf("Total:%f\t\n", ions + eles + e + b);
+    auto WriteTimer = [](FILE*& fp, const std::string& filename, const std::string t, const int ts)
+    {
+        if(fp == nullptr) fp = fopen(filename.c_str(), "w+");
 
-    
+        fprintf(fp, "%d\t%s\n", ts, t.c_str());
+
+        if(ts == MAX_TIME_STEP) fclose(fp);
+    };
+
+    if (MPI::COMM_WORLD.Get_rank() == 0)
+    {
+        static const std::string kTimer = PATH + "timer" + ".txt";
+        static FILE* timer_fp = nullptr;
+
+        WriteTimer(timer_fp, kTimer,  timer.format(3, "%w\t%u\t%s"), ts);
+    }
 }
 
 #endif

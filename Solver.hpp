@@ -23,6 +23,8 @@ class Solver
     Vector*** Bc;
     Vector*** Ec;
 
+    double* mpiBuf;
+
   public:
     Solver()
     {
@@ -31,12 +33,17 @@ class Solver
             J  = CreateArray(LX, LY, LZ);
             Ec = CreateArray(LX, LY, LZ);
             Bc = CreateArray(LX, LY, LZ);
+
+            mpiBuf = new double [3 * LY * LZ];
         }
         catch(std::bad_alloc)
         {
             fprintf(stderr, "エラー: bad_alloc 動的メモリ確保エラー: %s\n", __FILE__); 
             DeleteArray(J);
             DeleteArray(Ec);
+
+            delete[] mpiBuf;
+            
             abort();
         }
 
@@ -61,6 +68,8 @@ class Solver
         DeleteArray(J);
         DeleteArray(Ec);
         DeleteArray(Bc);
+
+        delete[] mpiBuf;
     }
 
     Vector*** CreateArray(const int x, const int y, const int z)
@@ -94,32 +103,27 @@ class Solver
     {
         std::vector<Particle>& p = plasma.p;
 
+        double s0[3][5];
+        double ds[3][5];
+        double w[5][5][5][3];
+
+        const double w1_3 = (1.0/3.0);
+
+        Vector J0[5][5][5];
+
+
         for (unsigned long int n = 0; n < p.size(); ++n)
         {
             Vector r0 = p[n].r;
             Vector r1 = p[n].r + p[n].v;
-            double s0[3][5] = {};
-#if 1
+
             sf5(s0[0], r0.x);
             sf5(s0[1], r0.y);
             sf5(s0[2], r0.z);
-#else
-            sf5(s0[0], r0.x, int(r0.x) - int(r1.x));
-            sf5(s0[1], r0.y, int(r0.y) - int(r1.y));
-            sf5(s0[2], r0.z, int(r0.z) - int(r1.z));
-#endif
 
-            
-            double ds[3][5] = {};
-#if 1
             sf5(ds[0], r1.x, int(r1.x) - int(r0.x));
             sf5(ds[1], r1.y, int(r1.y) - int(r0.y));
             sf5(ds[2], r1.z, int(r1.z) - int(r0.z));
-#else
-            sf5(ds[0], r1.x);
-            sf5(ds[1], r1.y);
-            sf5(ds[2], r1.z);
-#endif
 
             for(int i = 0; i < 5; ++i)
             {
@@ -127,10 +131,6 @@ class Solver
                 ds[1][i] -= s0[1][i];
                 ds[2][i] -= s0[2][i];
             }
-
-            double w[5][5][5][3] = {};
-
-            const double w1_3 = (1.0/3.0);
 
             for(int i = 0; i < 5; ++i)
             for(int j = 0; j < 5; ++j)
@@ -141,9 +141,7 @@ class Solver
                 w[i][j][k][2] = ds[2][k] * (s0[0][i]*s0[1][j] + 0.5*ds[0][i]*s0[1][j] + 0.5*s0[0][i]*ds[1][j] + w1_3*ds[0][i]*ds[1][j]);
 
             }
-
-            Vector J0[5][5][5] = {};
-
+            
             for(int i = 0; i < 5; ++i)
             for(int j = 0; j < 5; ++j)
             for(int k = 0; k < 5; ++k)
@@ -189,20 +187,50 @@ class Solver
     
     void BoundaryJ()
     {
-#if 0
-        Vector I0;
-        I0.Zero();
-        for (int i = X0; i < X1; ++i)
-	    for (int j = Y0; j < Y1; ++j)
-	    for (int k = Z0; k < Z1; ++k)
-	    {
-		    I0 += J[i][j][k];
-        }
+#ifdef MPI_PIC
+        auto MPIAddField = [this](Vector***& v, const int dstX, const int srcX, const bool reverse = false)
+        {
+            for (int j = 0; j < LY; ++j)
+            for (int k = 0; k < LZ; ++k)
+            {
+                mpiBuf[j * LZ * 3 + k * 3 + 0] = v[srcX][j][k].x;
+                mpiBuf[j * LZ * 3 + k * 3 + 1] = v[srcX][j][k].y;
+                mpiBuf[j * LZ * 3 + k * 3 + 2] = v[srcX][j][k].z;
+            }
 
-        printf("  I( %f, %f, %f)\n", I0.x, I0.y, I0.z);
+            int forward = (MPI::COMM_WORLD.Get_rank() + 1) % MPI::COMM_WORLD.Get_size();
+            int backward = MPI::COMM_WORLD.Get_rank() - 1;
+            if (backward < 0) backward = MPI::COMM_WORLD.Get_size() - 1;
+
+            MPI::Status status;
+            
+            if (reverse != true)
+                MPI::COMM_WORLD.Sendrecv_replace(mpiBuf, 3 * LY * LZ, MPI::DOUBLE,
+                    forward, 0, backward, 0, status);
+            else
+                MPI::COMM_WORLD.Sendrecv_replace(mpiBuf, 3 * LY * LZ, MPI::DOUBLE,
+                    backward, 0, forward, 0, status);
+
+            for (int j = 0; j < LY; ++j)
+            for (int k = 0; k < LZ; ++k)
+            {
+                v[dstX][j][k].x += mpiBuf[j * LZ * 3 + k * 3 + 0];
+                v[dstX][j][k].y += mpiBuf[j * LZ * 3 + k * 3 + 1];
+                v[dstX][j][k].z += mpiBuf[j * LZ * 3 + k * 3 + 2];
+            }
+
+        };
 #endif
         // periodic - Add
         // X
+#ifdef MPI_PIC
+        {
+            MPIAddField(J, X0+0, X1+0, false);
+            MPIAddField(J, X0+1, X1+1, false);
+            MPIAddField(J, X1-1, X0-1, true);
+            MPIAddField(J, X1-2, X0-2, true);
+        }
+#else
         for (int j = 0; j < LY; ++j)
         for (int k = 0; k < LZ; ++k)
         {
@@ -211,6 +239,7 @@ class Solver
             J[X1-1][j][k] += J[X0-1][j][k];
             J[X1-2][j][k] += J[X0-2][j][k];
         }
+#endif
         // Y
         for (int i = 0; i < LX; ++i)
         for (int k = 0; k < LZ; ++k)
@@ -239,19 +268,10 @@ class Solver
 	    {
 		    field.E[i][j][k] -= J[i][j][k];
         }
-#if 0
-        Vector I0;
-        I0.Zero();
-        for (int i = X0; i < X1; ++i)
-	    for (int j = Y0; j < Y1; ++j)
-	    for (int k = Z0; k < Z1; ++k)
-	    {
-		    I0 += J[i][j][k];
-        }
+    }
 
-        printf("  I( %f, %f, %f)\n", I0.x, I0.y, I0.z);
-#endif
-
+    void ClearJ()
+    {
         for (int i = 0; i < LX; ++i)
 	    for (int j = 0; j < LY; ++j)
 	    for (int k = 0; k < LZ; ++k)
@@ -259,6 +279,7 @@ class Solver
 		    J[i][j][k].Zero();
         }
     }
+
     
     void CalcOnCenter(Field& field)
     {
@@ -283,15 +304,8 @@ class Solver
         double gamma;
         
         std::vector<Particle> &p = plasma.p;
-
         for (unsigned long int n = 0; n < p.size(); ++n)
         {
-            if (n == 100)
-            {
-                //printf("  -> (%ld) V = %f, %f, %f  (%f)\n", n, p[n].v.x, p[n].v.y, p[n].v.z, p[n].v.Mag2());
-            }
-            
-            // shape factor で　rからe, b を取得
             double sx[3] = {};
             double sy[3] = {};
             double sz[3] = {};
@@ -315,7 +329,7 @@ class Solver
                 b += Bc[ii+i][jj+j][kk+k] * sx[i]*sy[j]*sz[k];
             }
             
-            b *= 0.5 * (plasma.q / plasma.m) / C; // q/m * Bc * delt_t/2
+            b *= 0.5 * (plasma.q / plasma.m);     // q/m * B * delt_t/2
             e *= 0.5 * (plasma.q / plasma.m);     // q/m * E * delt_t/2
 #if 1            
             gamma = C / sqrt(C2 - p[n].v.Mag2());
@@ -356,127 +370,5 @@ class Solver
 #endif
         } 
     }
-
-    void VillasenorBuneman(Plasma& plasma)
-    {
-        for (int i = 0; i < LX; ++i)
-	    for (int j = 0; j < LY; ++j)
-	    for (int k = 0; k < LZ; ++k)
-	    {
-		    J[i][j][k].Zero();
-        }
-
-        Vector r;
-        std::vector<Particle> &p = plasma.p;
-        //printf("  >plasma.q = %f, plasma.p.size(%ld)\n", plasma.q, p.size());
-
-        for (unsigned long int n = 0; n < p.size(); ++n)
-        {
-            r = p[n].r + p[n].v;
-
-            SplitX(r, p[n].r, plasma.q);
-        }
-    }
-
-    void SplitX(const Vector& r, const Vector& r0, const double q)
-    {
-        if (int(r.x + 0.5) != int(r0.x + 0.5))
-        {
-            Vector r1;
-            r1.x = 0.5 * (int(r.x + 0.5) + int(r0.x + 0.5));
-            r1.y = r0.y + (r.y - r0.y) * ((r1.x - r0.x) / (r.x - r0.x));
-            r1.z = r0.z + (r.z - r0.z) * ((r1.x - r0.x) / (r.x - r0.x));
-
-            SplitY(r,  r1, q);
-            SplitY(r1, r0, q);
-        }
-        else
-        {
-            SplitY(r,  r0, q);
-        }
-    }
-    
-    void SplitY(const Vector& r, const Vector& r0, const double q)
-    {
-        if (int(r.y + 0.5) != int(r0.y + 0.5))
-        {
-            Vector r1;
-            r1.y = 0.5 * (int(r.y + 0.5) + int(r0.y + 0.5));
-            r1.z = r0.z + (r.z - r0.z) * ((r1.y - r0.y) / (r.y - r0.y));
-            r1.x = r0.x + (r.x - r0.x) * ((r1.y - r0.y) / (r.y - r0.y));
-
-            SplitZ(r,  r1, q);
-            SplitZ(r1, r0, q);
-        }
-        else
-        {
-            SplitZ(r,  r0, q);
-        }
-    }
-
-    void SplitZ(const Vector& r, const Vector& r0, const double q)
-    {
-        if (int(r.z + 0.5) != int(r0.z + 0.5))
-        {
-            Vector r1;
-            r1.z = 0.5 * (int(r.z + 0.5) + int(r0.z + 0.5));
-            r1.x = r0.x + (r.x - r0.x) * ((r1.z - r0.z) / (r.z - r0.z));
-            r1.y = r0.y + (r.y - r0.y) * ((r1.z - r0.z) / (r.z - r0.z));
-
-            Depsit(r,  r1, q);
-            Depsit(r1, r0, q);
-        }
-        else
-        {
-            Depsit(r,  r0, q);
-        }
-    }
-
-    void Depsit(const Vector& r, const Vector& r0, const double q)
-    {
-        Vector mid = 0.5 * (r + r0);
-
-        int gi = int(mid.x + 0.5);
-        int gj = int(mid.y + 0.5);
-        int gk = int(mid.z + 0.5);
-
-        Vector d, c;
-        d.x = mid.x - gi + 0.5;
-        d.y = mid.y - gj + 0.5;
-        d.z = mid.z - gk + 0.5;
-
-        c.x = 1.0 - d.x;
-        c.y = 1.0 - d.y;
-        c.z = 1.0 - d.z;
-
-        Vector diff = (r - r0);
-        Vector flux = q * diff;
-        double delt = q * diff.x * diff.y * diff.z / 12;
-
-        int i = 0;
-        int j = 0;
-        int k = 0;
-
-        i = gi;
-        j = gj;
-        k = gk;
-
-        J[i][j  ][k+2].x += flux.x * d.y * d.z + delt;
-        J[i][j-1][k+2].x += flux.x * c.y * d.z - delt;
-        J[i][j  ][k+1].x += flux.x * d.y * c.z - delt;
-        J[i][j-1][k+1].x += flux.x * c.y * c.z + delt;
-
-        J[i  ][j][k+2].y += flux.y * d.z * d.x + delt;
-        J[i  ][j][k+1].y += flux.y * c.z * d.x - delt;
-        J[i-1][j][k+2].y += flux.y * d.z * c.x - delt;
-        J[i-1][j][k+1].y += flux.y * c.z * c.x + delt;
-
-        J[i  ][j  ][k+1].z += flux.z * d.x * d.y + delt;
-        J[i-1][j  ][k+1].z += flux.z * c.x * d.y - delt;
-        J[i  ][j-1][k+1].z += flux.z * d.x * c.y - delt;
-        J[i-1][j-1][k+1].z += flux.z * c.x * c.y + delt;
-        
-    }
 };
-
 #endif
