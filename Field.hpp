@@ -87,6 +87,31 @@ class Field
         v = nullptr;
     }
 
+#if 1
+    void UpdateB()
+    {
+        for (int i = X0; i < X1; ++i)
+        for (int j = Y0; j < Y1; ++j)
+        for (int k = Z0; k < Z1; ++k)
+        {
+            B[i][j][k].x -= 0.5 * C * (E[i][j][k].z - E[i][j-1][k].z - E[i][j][k].y + E[i][j][k-1].y);
+            B[i][j][k].y -= 0.5 * C * (E[i][j][k].x - E[i][j][k-1].x - E[i][j][k].z + E[i-1][j][k].z);
+            B[i][j][k].z -= 0.5 * C * (E[i][j][k].y - E[i-1][j][k].y - E[i][j][k].x + E[i][j-1][k].x);
+        }
+    }
+
+    void UpdateE()
+    {
+        for (int i = X0; i < X1; ++i)
+        for (int j = Y0; j < Y1; ++j)
+        for (int k = Z0; k < Z1; ++k)
+        {
+            E[i][j][k].x += C * (B[i][j+1][k].z - B[i][j][k].z - B[i][j][k+1].y + B[i][j][k].y);
+            E[i][j][k].y += C * (B[i][j][k+1].x - B[i][j][k].x - B[i+1][j][k].z + B[i][j][k].z);
+            E[i][j][k].z += C * (B[i+1][j][k].y - B[i][j][k].y - B[i][j+1][k].x + B[i][j][k].x);
+        }
+    }
+#else
     void UpdateB()
     {
         for (int i = X0; i < X1; ++i)
@@ -110,7 +135,7 @@ class Field
             E[i][j][k].z -= C * (B[i][j+1][k].x - B[i][j][k].x - B[i+1][j][k].y + B[i][j][k].y);
         }
     }
-
+#endif
     void BoundaryB()
     {
 #ifdef MPI_PIC
