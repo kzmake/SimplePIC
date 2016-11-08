@@ -72,7 +72,7 @@ void OutputProfile(std::vector<Plasma>& plasma, Field& field, Solver<SF>& solver
 }
 
 template<Shape SF>
-void Output(std::vector<Plasma>& plasma, Field& field, Solver<SF>& solver, boost::timer::cpu_timer& timer, const int ts)
+void Output(std::vector<Plasma>& plasma, Field& field, Solver<SF>& solver, Timer& t, const int ts)
 {    
     Vector energyB, energyE;
 
@@ -215,7 +215,7 @@ void Output(std::vector<Plasma>& plasma, Field& field, Solver<SF>& solver, boost
         static const std::string kTimer = PATH + "timer" + ".txt";
         static FILE* timer_fp = nullptr;
 
-        WriteTimer(timer_fp, kTimer,  timer.format(3, "%w\t%u\t%s"), ts);
+        WriteTimer(timer_fp, kTimer,  t[0].format(3, "%w") + t[1].format(3, "\t%w"), ts);
     }
 }
 

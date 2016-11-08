@@ -52,9 +52,8 @@ class Field
     Vector*** pmlZ1Bz;
 #endif
 
-#ifdef MPI_PIC
     double* mpiBuf;
-#endif
+
   public:
     Field()
     {
@@ -62,9 +61,8 @@ class Field
         {
             E = CreateArray(LX, LY, LZ);
             B = CreateArray(LX, LY, LZ);
-#ifdef MPI_PIC        
+       
             mpiBuf = new double [3 * LY * LZ];
-#endif
             
 #ifdef PIC_PML
             sigmaL0E  = new double [L];
@@ -112,9 +110,8 @@ class Field
             fprintf(stderr, "エラー: bad_alloc 動的メモリ確保エラー: %s\n", __FILE__);
             DeleteArray(E);
             DeleteArray(B);
-#ifdef MPI_PIC
+
             delete[] mpiBuf;
-#endif
             
 #ifdef PIC_PML
             delete[] sigmaL0E;
@@ -168,7 +165,6 @@ class Field
         }
 
 #ifdef PIC_PML
-
         for (int i = 0; i < LX; ++i)
 	    for (int j = 0; j < L ; ++j)
 	    for (int k = 0; k < LZ; ++k)
@@ -226,21 +222,6 @@ class Field
             sigmaL1B[n]  = 1.0 / (1.0 + sigL1B * 0.5);
             sigmaL1B_[n] = (1.0 - sigL1B * 0.5);
         }
-
-#if 0
-        if (MPI::COMM_WORLD.Get_rank() == 0)
-        {
-            printf("Sigma max = %f\n", SIGMA_MAX);
-            for (int n = 0; n < L; ++n) { double sigE = SIGMA_MAX * std::pow((n + 0.5) / L, M); printf("[%d] %1.4f, ", n, sigE); } printf("\n");
-            for (int n = 0; n < L; ++n) { double sigB = SIGMA_MAX * std::pow((n + 0.0) / L, M); printf("[%d] %1.4f, ", n, sigB); } printf("\n\n");
-
-            for (int n = 0; n < L; ++n) { printf("[%d] %1.4f, ", n, sigmaE[n]); } printf("\n");
-            for (int n = 0; n < L; ++n) { printf("[%d] %1.4f, ", n, sigmaE_[n]); } printf("\n");
-            for (int n = 0; n < L; ++n) { printf("[%d] %1.4f, ", n, sigmaB[n]); } printf("\n");
-            for (int n = 0; n < L; ++n) { printf("[%d] %1.4f, ", n, sigmaB_[n]); } printf("\n");
-        }
-#endif
-
 #endif
     }
     
@@ -248,47 +229,47 @@ class Field
     {
         DeleteArray(E);
         DeleteArray(B);
-#ifdef MPI_PIC
+
         delete[] mpiBuf;
-#endif
+
 #ifdef PIC_PML
-            delete[] sigmaL0E;
-            delete[] sigmaL0B;
-            delete[] sigmaL0E_;
-            delete[] sigmaL0B_;
+        delete[] sigmaL0E;
+        delete[] sigmaL0B;
+        delete[] sigmaL0E_;
+        delete[] sigmaL0B_;
 
-            delete[] sigmaL1E;
-            delete[] sigmaL1B;
-            delete[] sigmaL1E_;
-            delete[] sigmaL1B_;
+        delete[] sigmaL1E;
+        delete[] sigmaL1B;
+        delete[] sigmaL1E_;
+        delete[] sigmaL1B_;
 
-            DeleteArray(pmlY0Ex);
-            DeleteArray(pmlY0Ey);
-            DeleteArray(pmlY0Ez);
-            DeleteArray(pmlY1Ex);
-            DeleteArray(pmlY1Ey);
-            DeleteArray(pmlY1Ez);
+        DeleteArray(pmlY0Ex);
+        DeleteArray(pmlY0Ey);
+        DeleteArray(pmlY0Ez);
+        DeleteArray(pmlY1Ex);
+        DeleteArray(pmlY1Ey);
+        DeleteArray(pmlY1Ez);
 
-            DeleteArray(pmlZ0Ex);
-            DeleteArray(pmlZ0Ey);
-            DeleteArray(pmlZ0Ez);
-            DeleteArray(pmlZ1Ex);
-            DeleteArray(pmlZ1Ey);
-            DeleteArray(pmlZ1Ez);
+        DeleteArray(pmlZ0Ex);
+        DeleteArray(pmlZ0Ey);
+        DeleteArray(pmlZ0Ez);
+        DeleteArray(pmlZ1Ex);
+        DeleteArray(pmlZ1Ey);
+        DeleteArray(pmlZ1Ez);
 
-            DeleteArray(pmlY0Bx);
-            DeleteArray(pmlY0By);
-            DeleteArray(pmlY0Bz);
-            DeleteArray(pmlY1Bx);
-            DeleteArray(pmlY1By);
-            DeleteArray(pmlY1Bz);
+        DeleteArray(pmlY0Bx);
+        DeleteArray(pmlY0By);
+        DeleteArray(pmlY0Bz);
+        DeleteArray(pmlY1Bx);
+        DeleteArray(pmlY1By);
+        DeleteArray(pmlY1Bz);
 
-            DeleteArray(pmlZ0Bx);
-            DeleteArray(pmlZ0By);
-            DeleteArray(pmlZ0Bz);
-            DeleteArray(pmlZ1Bx);
-            DeleteArray(pmlZ1By);
-            DeleteArray(pmlZ1Bz);
+        DeleteArray(pmlZ0Bx);
+        DeleteArray(pmlZ0By);
+        DeleteArray(pmlZ0Bz);
+        DeleteArray(pmlZ1Bx);
+        DeleteArray(pmlZ1By);
+        DeleteArray(pmlZ1Bz);
 #endif
     }
 
@@ -345,7 +326,6 @@ class Field
     
     void BoundaryB()
     {
-#ifdef MPI_PIC
         auto MPICopyField = [this](Vector***& v, const int dstX, const int srcX, const bool reverse = false)
         {
             for (int j = 0; j < LY; ++j)
@@ -377,10 +357,115 @@ class Field
                 v[dstX][j][k].z = mpiBuf[j * LZ * 3 + k * 3 + 2];
             }
         };
-#endif
 
+        // periodic - Copy
+        // X
+        {
+            MPICopyField(B, X1+0, X0+0, true);
+            MPICopyField(B, X1+1, X0+1, true);
+            MPICopyField(B, X1+2, X0+2, true);
+            MPICopyField(B, X0-1, X1-1, false);
+            MPICopyField(B, X0-2, X1-2, false);
+        }
+
+#ifndef PIC_PML
+        // Y
+        for (int i = 0; i < LX; ++i)
+        for (int k = 0; k < LZ; ++k)
+        {
+            B[i][Y1+0][k] = B[i][Y0+0][k];
+            B[i][Y1+1][k] = B[i][Y0+1][k];
+            B[i][Y1+2][k] = B[i][Y0+2][k];
+            B[i][Y0-1][k] = B[i][Y1-1][k];
+            B[i][Y0-2][k] = B[i][Y1-2][k];
+        }
+
+        // Z
+        for (int i = 0; i < LX; ++i)
+        for (int j = 0; j < LY; ++j)
+        {
+            B[i][j][Z1+0] = B[i][j][Z0+0];
+            B[i][j][Z1+1] = B[i][j][Z0+1];
+            B[i][j][Z1+2] = B[i][j][Z0+2];
+            B[i][j][Z0-1] = B[i][j][Z1-1];
+            B[i][j][Z0-2] = B[i][j][Z1-2];
+        }
+#endif
+    }
+    
+    void BoundaryE()
+    {
+        auto MPICopyField = [this](Vector***& v, const int dstX, const int srcX, const bool reverse = false)
+        {
+            for (int j = 0; j < LY; ++j)
+            for (int k = 0; k < LZ; ++k)
+            {
+                mpiBuf[j * LZ * 3 + k * 3 + 0] = v[srcX][j][k].x;
+                mpiBuf[j * LZ * 3 + k * 3 + 1] = v[srcX][j][k].y;
+                mpiBuf[j * LZ * 3 + k * 3 + 2] = v[srcX][j][k].z;
+            }
+
+            int forward = (MPI::COMM_WORLD.Get_rank() + 1) % MPI::COMM_WORLD.Get_size();
+            int backward = MPI::COMM_WORLD.Get_rank() - 1;
+            if (backward < 0) backward = MPI::COMM_WORLD.Get_size() - 1;
+            
+            MPI::Status status; 
+            
+            if (reverse != true)
+                MPI::COMM_WORLD.Sendrecv_replace(mpiBuf, 3 * LY * LZ, MPI::DOUBLE,
+                     forward, 0, backward, 0, status);
+            else
+                MPI::COMM_WORLD.Sendrecv_replace(mpiBuf, 3 * LY * LZ, MPI::DOUBLE,
+                    backward, 0, forward, 0, status);
+
+            for (int j = 0; j < LY; ++j)
+            for (int k = 0; k < LZ; ++k)
+            {
+                v[dstX][j][k].x = mpiBuf[j * LZ * 3 + k * 3 + 0];
+                v[dstX][j][k].y = mpiBuf[j * LZ * 3 + k * 3 + 1];
+                v[dstX][j][k].z = mpiBuf[j * LZ * 3 + k * 3 + 2];
+            }
+
+        };
+        
+        // periodic - Copy
+        // X
+        {
+            MPICopyField(E, X1+0, X0+0, true);
+            MPICopyField(E, X1+1, X0+1, true);
+            MPICopyField(E, X1+2, X0+2, true);
+            MPICopyField(E, X0-1, X1-1, false);
+            MPICopyField(E, X0-2, X1-2, false);
+        }
+
+#ifndef PIC_PML
+        // Y
+        for (int i = 0; i < LX; ++i)
+        for (int k = 0; k < LZ; ++k)
+        {
+            E[i][Y1+0][k] = E[i][Y0+0][k];
+            E[i][Y1+1][k] = E[i][Y0+1][k];
+            E[i][Y1+2][k] = E[i][Y0+2][k];
+            E[i][Y0-1][k] = E[i][Y1-1][k];
+            E[i][Y0-2][k] = E[i][Y1-2][k];
+        }
+
+        // Z
+        for (int i = 0; i < LX; ++i)
+        for (int j = 0; j < LY; ++j)
+        {
+            E[i][j][Z1+0] = E[i][j][Z0+0];
+            E[i][j][Z1+1] = E[i][j][Z0+1];
+            E[i][j][Z1+2] = E[i][j][Z0+2];
+            E[i][j][Z0-1] = E[i][j][Z1-1];
+            E[i][j][Z0-2] = E[i][j][Z1-2];
+        }
+#endif
+    }
+    
 #ifdef PIC_PML
-        // PML
+    void BoundaryB_PML()
+    {
         {
             int l;
 
@@ -426,7 +511,6 @@ class Field
                 B[i][j][k].z = pmlY1Bx[i][l][k].z + pmlY1By[i][l][k].z;
             }
 
-#if 1
             // PML - Z0 [1 Z0) ... 
             // 
             // x: |0|1|2|3|4||X0~
@@ -477,7 +561,6 @@ class Field
                 B[i][j][k].y = pmlZ1Bz[i][j][l].y + pmlZ1Bx[i][j][l].y;
                 B[i][j][k].z = pmlZ1Bx[i][j][l].z + pmlZ1By[i][j][l].z;
             }
-#endif
         }
         
         {
@@ -570,99 +653,12 @@ class Field
                 B[i][j][k].z = pmlY1Bx[i][lj][k].z + pmlY1By[i][lj][k].z;
             }
         }
-#endif
-        // periodic - Copy
-        // X
-#ifdef MPI_PIC
-        {
-            MPICopyField(B, X1+0, X0+0, true);
-            MPICopyField(B, X1+1, X0+1, true);
-            MPICopyField(B, X1+2, X0+2, true);
-            MPICopyField(B, X0-1, X1-1, false);
-            MPICopyField(B, X0-2, X1-2, false);
-        }
-#else
-        for (int j = 0; j < LY; ++j)
-        for (int k = 0; k < LZ; ++k)
-        {
-            B[X1+0][j][k] = B[X0+0][j][k];
-            B[X1+1][j][k] = B[X0+1][j][k];
-            B[X1+2][j][k] = B[X0+2][j][k];
-            B[X0-1][j][k] = B[X1-1][j][k];
-            B[X0-2][j][k] = B[X1-2][j][k];
-        }
-#endif
-
-
-#if 0
-        // Y
-        for (int i = 0; i < LX; ++i)
-        for (int k = 0; k < LZ; ++k)
-        {
-            B[i][Y1+0][k] = B[i][Y0+0][k];
-            B[i][Y1+1][k] = B[i][Y0+1][k];
-            B[i][Y1+2][k] = B[i][Y0+2][k];
-            B[i][Y0-1][k] = B[i][Y1-1][k];
-            B[i][Y0-2][k] = B[i][Y1-2][k];
-        }
-#endif
-#if 0
-
-        // Z
-        for (int i = 0; i < LX; ++i)
-        for (int j = 0; j < LY; ++j)
-        {
-            B[i][j][Z1+0] = B[i][j][Z0+0];
-            B[i][j][Z1+1] = B[i][j][Z0+1];
-            B[i][j][Z1+2] = B[i][j][Z0+2];
-            B[i][j][Z0-1] = B[i][j][Z1-1];
-            B[i][j][Z0-2] = B[i][j][Z1-2];
-        }
-#endif
     }
 
-    void BoundaryE()
+    void BoundaryE_PML()
     {
-#ifdef MPI_PIC
-        auto MPICopyField = [this](Vector***& v, const int dstX, const int srcX, const bool reverse = false)
-        {
-            for (int j = 0; j < LY; ++j)
-            for (int k = 0; k < LZ; ++k)
-            {
-                mpiBuf[j * LZ * 3 + k * 3 + 0] = v[srcX][j][k].x;
-                mpiBuf[j * LZ * 3 + k * 3 + 1] = v[srcX][j][k].y;
-                mpiBuf[j * LZ * 3 + k * 3 + 2] = v[srcX][j][k].z;
-            }
-
-            int forward = (MPI::COMM_WORLD.Get_rank() + 1) % MPI::COMM_WORLD.Get_size();
-            int backward = MPI::COMM_WORLD.Get_rank() - 1;
-            if (backward < 0) backward = MPI::COMM_WORLD.Get_size() - 1;
-            
-            MPI::Status status; 
-            
-            if (reverse != true)
-                MPI::COMM_WORLD.Sendrecv_replace(mpiBuf, 3 * LY * LZ, MPI::DOUBLE,
-                     forward, 0, backward, 0, status);
-            else
-                MPI::COMM_WORLD.Sendrecv_replace(mpiBuf, 3 * LY * LZ, MPI::DOUBLE,
-                    backward, 0, forward, 0, status);
-
-            for (int j = 0; j < LY; ++j)
-            for (int k = 0; k < LZ; ++k)
-            {
-                v[dstX][j][k].x = mpiBuf[j * LZ * 3 + k * 3 + 0];
-                v[dstX][j][k].y = mpiBuf[j * LZ * 3 + k * 3 + 1];
-                v[dstX][j][k].z = mpiBuf[j * LZ * 3 + k * 3 + 2];
-            }
-
-        };
-#endif
-        
-#ifdef PIC_PML
-        // PML
         {
             int l;
-#if 1
             // PML - Y0 [0 Y0)
             for (int i = X0; i < X1; ++i)
             for (int j =  1; j < Y0; ++j)
@@ -704,9 +700,7 @@ class Field
                 E[i][j][k].y = pmlY1Ez[i][l][k].y + pmlY1Ex[i][l][k].y;
                 E[i][j][k].z = pmlY1Ex[i][l][k].z + pmlY1Ey[i][l][k].z;
             }
-#endif
 
-#if 1
             // PML - Z0 [0 Z0)
             for (int i = X0; i < X1; ++i)
             for (int j = Y0; j < Y1; ++j)
@@ -748,7 +742,6 @@ class Field
                 E[i][j][k].y = pmlZ1Ez[i][j][l].y + pmlZ1Ex[i][j][l].y;
                 E[i][j][k].z = pmlZ1Ex[i][j][l].z + pmlZ1Ey[i][j][l].z;
             }
-#endif
         }
 
         {
@@ -841,55 +834,8 @@ class Field
                 E[i][j][k].z = pmlY1Ex[i][lj][k].z + pmlY1Ey[i][lj][k].z;
             }
         }
+    }
 #endif
-
-        // periodic - Copy
-        // X
-#ifdef MPI_PIC
-        {
-            MPICopyField(E, X1+0, X0+0, true);
-            MPICopyField(E, X1+1, X0+1, true);
-            MPICopyField(E, X1+2, X0+2, true);
-            MPICopyField(E, X0-1, X1-1, false);
-            MPICopyField(E, X0-2, X1-2, false);
-        }
-#else
-        for (int j = 0; j < LY; ++j)
-        for (int k = 0; k < LZ; ++k)
-        {
-            E[X1+0][j][k] = E[X0+0][j][k];
-            E[X1+1][j][k] = E[X0+1][j][k];
-            E[X1+2][j][k] = E[X0+2][j][k];
-            E[X0-1][j][k] = E[X1-1][j][k];
-            E[X0-2][j][k] = E[X1-2][j][k];
-        }
-#endif
-
-#if 0
-        // Y
-        for (int i = 0; i < LX; ++i)
-        for (int k = 0; k < LZ; ++k)
-        {
-            E[i][Y1+0][k] = E[i][Y0+0][k];
-            E[i][Y1+1][k] = E[i][Y0+1][k];
-            E[i][Y1+2][k] = E[i][Y0+2][k];
-            E[i][Y0-1][k] = E[i][Y1-1][k];
-            E[i][Y0-2][k] = E[i][Y1-2][k];
-        }
-#endif
-#if 0
-        // Z
-        for (int i = 0; i < LX; ++i)
-        for (int j = 0; j < LY; ++j)
-        {
-            E[i][j][Z1+0] = E[i][j][Z0+0];
-            E[i][j][Z1+1] = E[i][j][Z0+1];
-            E[i][j][Z1+2] = E[i][j][Z0+2];
-            E[i][j][Z0-1] = E[i][j][Z1-1];
-            E[i][j][Z0-2] = E[i][j][Z1-2];
-        }
-#endif
-    }    
 };
 
 #endif

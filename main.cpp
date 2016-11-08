@@ -1,11 +1,14 @@
 #include <cstdio>
 #include <cmath>
+#include <vector>
 
 #include <boost/timer/timer.hpp>
 
 #ifdef MPI_PIC
 #include <mpi.h>
 #endif
+
+using Timer = std::vector<boost::timer::cpu_timer>;
 
 #include "Param.hpp"
 
@@ -19,33 +22,38 @@
 
 int main(int argc, char **argv)
 {
+
     MPI::Init(argc, argv);
 
     Field f;
     std::vector<Plasma> p;
     Solver<TSC> s;
     //Solver<CIC> s;
-
+    
+    Timer t(2);
+    
     {
-        boost::timer::cpu_timer timer;
-        
+        t[0].start();
         Input(p, f);
+        t[0].stop();
 
         OutputProfile(p, f, s);
-        timer.stop();
-
-        Output(p, f, s, timer, 0);
+        Output(p, f, s, t, 0);
     }
 
     for(int ts = 1; ts <= MAX_TIME_STEP; ++ts)
     {
         MPI::COMM_WORLD.Barrier();
-        boost::timer::cpu_timer timer;
 
-        if (MPI::COMM_WORLD.Get_rank() == 0) printf("%d\n", ts);
+        t[0].start();
+
+        if (MPI::COMM_WORLD.Get_rank() == 0)
+        {
+            printf("%d\n", ts);
+        }
         
         f.UpdateB();
-        //f.BoundaryB();
+        f.BoundaryB();
 
         s.CalcOnCenter(f);
         for(unsigned int n = 0; n < p.size(); ++n)
@@ -54,19 +62,30 @@ int main(int argc, char **argv)
         }
 
         f.UpdateB();
+        
+#ifdef PIC_PML
+        f.BoundaryB_PML();
+#endif
         f.BoundaryB();
-
+        
         f.UpdateE();
 
         s.ClearJ();
+
+        t[1].start();
         for(unsigned int n = 0; n < p.size(); ++n)
         {
+            printf(" p.size (%ld)\n", p[n].p.size());
             s.DensityDecomposition(p[n], f);
         }
+        t[1].stop();
 
         s.BoundaryJ();
         s.UpdateEbyJ(f);
-        
+
+#ifdef PIC_PML
+        f.BoundaryE_PML();
+#endif  
         f.BoundaryE();
 
         for(unsigned int n = 0; n < p.size(); ++n)
@@ -76,7 +95,8 @@ int main(int argc, char **argv)
         }
 
         MPI::COMM_WORLD.Barrier();
-        timer.stop();
+
+        t[0].stop();
 
         if (ts % SORT_STEP == 0)
         for(unsigned int n = 0; n < p.size(); ++n)
@@ -84,10 +104,14 @@ int main(int argc, char **argv)
             p[n].Sort();
         }
 
-        std::string result = timer.format(3, "total：%ws | user：%us | system：%ss (CPU: %p)");
-        if (MPI::COMM_WORLD.Get_rank() == 0) printf("  %s\n", result.c_str());
+        std::string result = t[0].format(3, "total：%ws") + t[1].format(3, " | DensityDecomposition：%ws");
+
+        if (MPI::COMM_WORLD.Get_rank() == 0)
+        {
+            printf("  %s\n", result.c_str());
+        }
         
-        Output(p, f, s, timer, ts);
+        Output(p, f, s, t, ts);
     }
 
     MPI::Finalize();

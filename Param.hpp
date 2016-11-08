@@ -5,11 +5,11 @@
 #include <string>
 #include <cmath>
 
-#define PIC_PML
+//#define PIC_PML
 
 namespace
 {
-    constexpr int NUM_DENS      = 1;
+    constexpr int NUM_DENS      = 100;
 
     constexpr double MASS_RATIO = 100.0;
     constexpr double ELE_MASS   = 0.0625;
@@ -31,7 +31,7 @@ namespace
 
     const std::string PATH("data/");
 
-    constexpr int MAX_TIME_STEP = 1000;
+    constexpr int MAX_TIME_STEP = 500;
     constexpr int OUTPUT_STEP   = 1;
     constexpr int SORT_STEP = 50;
 
@@ -43,12 +43,12 @@ namespace
     constexpr double SIGMA_MAX = - std::log(R0) * (M + 1.0) * C / (2.0 * L);
 #endif
 
+    // system
+    constexpr int LX0 = 6;
+    constexpr int LY0 = 100;
+    constexpr int LZ0 = 100;
 
 #ifdef PIC_PML
-    // system
-    constexpr int LX0 = 5;
-    constexpr int LY0 = 128;
-    constexpr int LZ0 = 128;
     constexpr int LX  = LX0 + 5;
     constexpr int LY  = LY0 + 2 * (L + 1);
     constexpr int LZ  = LZ0 + 2 * (L + 1);
@@ -61,10 +61,6 @@ namespace
     constexpr int Y1  = LY - (L + 1);
     constexpr int Z1  = LZ - (L + 1);
 #else
-    // system
-    constexpr int LX0 = 5;
-    constexpr int LY0 = 128;
-    constexpr int LZ0 = 128;
     constexpr int LX  = LX0 + 5;
     constexpr int LY  = LY0 + 5;
     constexpr int LZ  = LZ0 + 5;
@@ -83,5 +79,3 @@ namespace
 };
 
 #endif
-
-

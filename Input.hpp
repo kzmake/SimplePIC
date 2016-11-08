@@ -6,7 +6,7 @@
 #include <vector>
 #include <random>
 
-#if 0
+#if 1
 void Input(std::vector<Plasma>& p, Field& f)
 {
     int seed = RANDOM_SEED + MPI::COMM_WORLD.Get_rank();
@@ -54,7 +54,7 @@ void Input(std::vector<Plasma>& p, Field& f)
         r.z = Z0 + k + dist(mt);
 
 ION_VELO:
-        vi.x = randomBoxMuller(dist(mt), dist(mt));
+        vi.x = 6.0 * randomBoxMuller(dist(mt), dist(mt));
 		vi.y = randomBoxMuller(dist(mt), dist(mt));
 		vi.z = randomBoxMuller(dist(mt), dist(mt));
         vi *= std_devi_i;
@@ -62,7 +62,7 @@ ION_VELO:
         if (vi.Mag2() > C2) goto ION_VELO;
 
 ELE_VELO:
-        ve.x = randomBoxMuller(dist(mt), dist(mt));
+        ve.x = 6.0 * randomBoxMuller(dist(mt), dist(mt));
 		ve.y = randomBoxMuller(dist(mt), dist(mt));
 		ve.z = randomBoxMuller(dist(mt), dist(mt));
         ve *= std_devi_e;
@@ -76,13 +76,6 @@ ELE_VELO:
 		eles.p.push_back(ele);
 
 		++id;
-	}
-
-    for (int i = X0; i < X1; ++i)
-	for (int j = Y0; j < Y1; ++j)
-	for (int k = Z0; k < Z1; ++k)
-	{
-        //f.B[i][j][k].z = 0.1;
 	}
 
     p.push_back(ions);

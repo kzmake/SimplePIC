@@ -16,13 +16,11 @@ class Plasma
     double q;
     std::vector<Particle> p;
 
-#ifdef MPI_PIC
     std::vector<Particle> mpiParticlesX0;
     std::vector<Particle> mpiParticlesX1;
 
     std::vector<double> mpiSendBuf;
     std::vector<double> mpiRecvBuf;
-#endif
 
   public:
     Plasma() {}
@@ -52,7 +50,6 @@ class Plasma
 	        if (p[n].r.z <  Z0) { p[n].r.z += LZ0; }
         }
 
-#ifdef MPI_PIC
         auto MPIMoveParticle = [this](std::vector<Particle>& p, const bool reverse = false)
         {
             unsigned long int sendSize = p.size();
@@ -116,8 +113,6 @@ class Plasma
             }
         };
 
-        
-
         unsigned long int pSize = p.size();
         for (unsigned long int n = 0; n < pSize; ++n)
         {
@@ -155,14 +150,6 @@ class Plasma
 
         mpiParticlesX1.clear();
         mpiParticlesX0.clear();
-#else
-        for (unsigned long int n = 0; n < p.size(); ++n)
-        {
-            if (p[n].r.x >= X1) { p[n].r.x -= LX0; }
-	        if (p[n].r.x <  X0) { p[n].r.x += LX0; }
-        }
-#endif
-
     }
 };
 
