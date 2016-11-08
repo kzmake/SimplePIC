@@ -3,19 +3,22 @@
 
 #include <cstdio>
 #include <string>
+#include <cmath>
+
+#define PIC_PML
 
 namespace
 {
-    constexpr int NUM_DENS      = 100;
+    constexpr int NUM_DENS      = 1;
 
     constexpr double MASS_RATIO = 100.0;
     constexpr double ELE_MASS   = 0.0625;
     constexpr double ION_MASS   = ELE_MASS * MASS_RATIO;
 
     constexpr double ELE_WPE    = 0.50;
-    constexpr double ION_WPE    = sqrt(ELE_MASS / ION_MASS) * ELE_WPE;
+    constexpr double ION_WPE    = std::sqrt(ELE_MASS / ION_MASS) * ELE_WPE;
 
-    constexpr double ELE_Q      = - ELE_WPE * sqrt(ELE_MASS / (double)NUM_DENS);
+    constexpr double ELE_Q      = - ELE_WPE * std::sqrt(ELE_MASS / (double)NUM_DENS);
     constexpr double ION_Q      = - ELE_Q;
 
     constexpr int RANDOM_SEED   = 1000;
@@ -24,18 +27,44 @@ namespace
     constexpr double C2         = C * C;
 
     constexpr double ELE_VTH    = 0.1 * C;
-    constexpr double ION_VTH    = sqrt(ELE_MASS / ION_MASS) * ELE_VTH;
+    constexpr double ION_VTH    = std::sqrt(ELE_MASS / ION_MASS) * ELE_VTH;
 
     const std::string PATH("data/");
 
     constexpr int MAX_TIME_STEP = 1000;
-    constexpr int OUTPUT_STEP   = 50;
-    constexpr int SORT_STEP = 1;
+    constexpr int OUTPUT_STEP   = 1;
+    constexpr int SORT_STEP = 50;
 
+#ifdef PIC_PML
+    constexpr int L  = 16;
+    constexpr int M  = 4;
+    constexpr double R0 = 1.0e-8;
+
+    constexpr double SIGMA_MAX = - std::log(R0) * (M + 1.0) * C / (2.0 * L);
+#endif
+
+
+#ifdef PIC_PML
     // system
     constexpr int LX0 = 5;
-    constexpr int LY0 = 50;
-    constexpr int LZ0 = 50;
+    constexpr int LY0 = 128;
+    constexpr int LZ0 = 128;
+    constexpr int LX  = LX0 + 5;
+    constexpr int LY  = LY0 + 2 * (L + 1);
+    constexpr int LZ  = LZ0 + 2 * (L + 1);
+
+    // x = [2 (LX-3))
+    constexpr int X0  = 2;
+    constexpr int Y0  = (L + 1);
+    constexpr int Z0  = (L + 1);
+    constexpr int X1  = LX - 3;
+    constexpr int Y1  = LY - (L + 1);
+    constexpr int Z1  = LZ - (L + 1);
+#else
+    // system
+    constexpr int LX0 = 5;
+    constexpr int LY0 = 128;
+    constexpr int LZ0 = 128;
     constexpr int LX  = LX0 + 5;
     constexpr int LY  = LY0 + 5;
     constexpr int LZ  = LZ0 + 5;
@@ -47,10 +76,12 @@ namespace
     constexpr int X1  = LX - 3;
     constexpr int Y1  = LY - 3;
     constexpr int Z1  = LZ - 3;
-
+#endif
+    
     // sort
     //constexpr int SORT_PREC = 10;
 };
 
 #endif
+
 

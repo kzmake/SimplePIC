@@ -45,7 +45,7 @@ int main(int argc, char **argv)
         if (MPI::COMM_WORLD.Get_rank() == 0) printf("%d\n", ts);
         
         f.UpdateB();
-        f.BoundaryB();
+        //f.BoundaryB();
 
         s.CalcOnCenter(f);
         for(unsigned int n = 0; n < p.size(); ++n)
