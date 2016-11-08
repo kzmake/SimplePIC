@@ -4,9 +4,7 @@
 
 #include <boost/timer/timer.hpp>
 
-#ifdef MPI_PIC
 #include <mpi.h>
-#endif
 
 using Timer = std::vector<boost::timer::cpu_timer>;
 
