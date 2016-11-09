@@ -18,17 +18,7 @@ void OutputProfile(std::vector<Plasma>& plasma, Field& field, Solver<SF>& solver
         // JSON
         boost::property_tree::ptree pt;
         {
-            bool enabledMpi;
-#ifdef MPI_PIC
-            enabledMpi = true;
-#else
-            enabledMpi = false;
-#endif
-            pt.put("MPI.enabled", enabledMpi);
-
-#ifdef MPI_PIC
             pt.put("MPI.size", MPI::COMM_WORLD.Get_size());
-#endif
 
             pt.put("PIC.density",    NUM_DENS);
             pt.put("PIC.C"      ,           C);
@@ -158,11 +148,11 @@ void Output(std::vector<Plasma>& plasma, Field& field, Solver<SF>& solver, Timer
         snprintf(cts, sizeof(cts), "%06d", ts);
         snprintf(crank, sizeof(crank), "%02d", MPI::COMM_WORLD.Get_rank());
         std::string filename("");
-        filename += PATH + s + "/" + s + cts + "_r" + crank + ".txt";
+        filename += PATH + s + "/" + s + cts + "_r" + crank;
         FILE *fp;
         fp = fopen(filename.c_str(), "w+");
 
-        fwrite(&V[X0+LX0/2][0][0], sizeof(double) * 3, LY*LZ, fp);
+        fwrite(&V[0][0][0], sizeof(double) * 3, LX*LY*LZ, fp);
 
         //fwrite(&v[0][0][0], sizeof(double), LX*LY*LZ, fp);
         

@@ -54,7 +54,7 @@ void Input(std::vector<Plasma>& p, Field& f)
         r.z = Z0 + k + dist(mt);
 
 ION_VELO:
-        vi.x = 6.0 * randomBoxMuller(dist(mt), dist(mt));
+        vi.x = randomBoxMuller(dist(mt), dist(mt));
 		vi.y = randomBoxMuller(dist(mt), dist(mt));
 		vi.z = randomBoxMuller(dist(mt), dist(mt));
         vi *= std_devi_i;
@@ -62,7 +62,7 @@ ION_VELO:
         if (vi.Mag2() > C2) goto ION_VELO;
 
 ELE_VELO:
-        ve.x = 6.0 * randomBoxMuller(dist(mt), dist(mt));
+        ve.x = randomBoxMuller(dist(mt), dist(mt));
 		ve.y = randomBoxMuller(dist(mt), dist(mt));
 		ve.z = randomBoxMuller(dist(mt), dist(mt));
         ve *= std_devi_e;

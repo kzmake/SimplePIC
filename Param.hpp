@@ -15,7 +15,7 @@ namespace
     constexpr double ELE_MASS   = 0.0625;
     constexpr double ION_MASS   = ELE_MASS * MASS_RATIO;
 
-    constexpr double ELE_WPE    = 0.50;
+    constexpr double ELE_WPE    = 0.05; // wpe * delt <= 0
     constexpr double ION_WPE    = std::sqrt(ELE_MASS / ION_MASS) * ELE_WPE;
 
     constexpr double ELE_Q      = - ELE_WPE * std::sqrt(ELE_MASS / (double)NUM_DENS);
@@ -44,9 +44,9 @@ namespace
 #endif
 
     // system
-    constexpr int LX0 = 6;
-    constexpr int LY0 = 100;
-    constexpr int LZ0 = 100;
+    constexpr int LX0 = 5;
+    constexpr int LY0 = 5;
+    constexpr int LZ0 = 128;
 
 #ifdef PIC_PML
     constexpr int LX  = LX0 + 5;
