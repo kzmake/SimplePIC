@@ -57,19 +57,7 @@ class Plasma
 
             mpiSendBuf.resize(7 * sendSize);
 
-            unsigned long int idx;
-            
-            idx = 0;
-            for (unsigned long int n = 0; n < sendSize; ++n)
-            {
-                memcpy(&mpiSendBuf[idx++], &p[n].id, sizeof(double));
-                mpiSendBuf[idx++] = p[n].r.x;
-                mpiSendBuf[idx++] = p[n].r.y;
-                mpiSendBuf[idx++] = p[n].r.z;
-                mpiSendBuf[idx++] = p[n].v.x;
-                mpiSendBuf[idx++] = p[n].v.y;
-                mpiSendBuf[idx++] = p[n].v.z;
-            }
+            memcpy(&mpiSendBuf[0], &p[0], sizeof(Particle) * sendSize);
 
             int forward = (MPI::COMM_WORLD.Get_rank() + 1) % MPI::COMM_WORLD.Get_size();
             int backward = MPI::COMM_WORLD.Get_rank() - 1;
@@ -100,17 +88,7 @@ class Plasma
 
             p.resize(recvSize);
 
-            idx = 0;
-            for (unsigned long int n = 0; n < recvSize; ++n)
-            {
-                memcpy(&p[n].id, &mpiRecvBuf[idx++], sizeof(double));
-                p[n].r.x = mpiRecvBuf[idx++];
-                p[n].r.y = mpiRecvBuf[idx++];
-                p[n].r.z = mpiRecvBuf[idx++];
-                p[n].v.x = mpiRecvBuf[idx++];
-                p[n].v.y = mpiRecvBuf[idx++];
-                p[n].v.z = mpiRecvBuf[idx++];
-            }
+            memcpy(&p[0], &mpiRecvBuf[0], sizeof(Particle) * recvSize);
         };
 
         unsigned long int pSize = p.size();

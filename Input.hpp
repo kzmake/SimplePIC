@@ -43,15 +43,15 @@ void Input(std::vector<Plasma>& p, Field& f)
         return sqrt(-2.0*log(alpha)) * cos(2.0*M_PI*beta);
     };
 
-    long int id = MPI::COMM_WORLD.Get_rank() * 1000000;
-    for (int i = 0; i < LX0; ++i)
-	for (int j = 0; j < LY0; ++j)
-    for (int k = 0; k < LZ0; ++k)
+    long int id = MPI::COMM_WORLD.Get_rank();
+    for (int i = X0; i < X1; ++i)
+	for (int j = Y0; j < Y1; ++j)
+    for (int k = Z0; k < Z1; ++k)
     for (int n = 0; n < NUM_DENS; ++n)
 	{
-		r.x = X0 + i + dist(mt);
-		r.y = Y0 + j + dist(mt);
-        r.z = Z0 + k + dist(mt);
+		r.x = i + dist(mt);
+		r.y = j + dist(mt);
+        r.z = k + dist(mt);
 
 ION_VELO:
         vi.x = randomBoxMuller(dist(mt), dist(mt));
@@ -75,7 +75,7 @@ ELE_VELO:
 		ions.p.push_back(ion);
 		eles.p.push_back(ele);
 
-		++id;
+		id += 100;
 	}
 
     p.push_back(ions);

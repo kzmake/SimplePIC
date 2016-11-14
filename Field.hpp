@@ -328,14 +328,8 @@ class Field
     {
         auto MPICopyField = [this](Vector***& v, const int dstX, const int srcX, const bool reverse = false)
         {
-            for (int j = 0; j < LY; ++j)
-            for (int k = 0; k < LZ; ++k)
-            {
-                mpiBuf[j * LZ * 3 + k * 3 + 0] = v[srcX][j][k].x;
-                mpiBuf[j * LZ * 3 + k * 3 + 1] = v[srcX][j][k].y;
-                mpiBuf[j * LZ * 3 + k * 3 + 2] = v[srcX][j][k].z;
-            }
-
+            memcpy(mpiBuf, &v[srcX][0][0], sizeof(Vector) * LY * LZ);
+            
             int forward = (MPI::COMM_WORLD.Get_rank() + 1) % MPI::COMM_WORLD.Get_size();
             int backward = MPI::COMM_WORLD.Get_rank() - 1;
             if (backward < 0) backward = MPI::COMM_WORLD.Get_size() - 1;
@@ -349,13 +343,7 @@ class Field
                 MPI::COMM_WORLD.Sendrecv_replace(mpiBuf, 3 * LY * LZ, MPI::DOUBLE,
                     backward, 0, forward, 0, status);
 
-            for (int j = 0; j < LY; ++j)
-            for (int k = 0; k < LZ; ++k)
-            {
-                v[dstX][j][k].x = mpiBuf[j * LZ * 3 + k * 3 + 0];
-                v[dstX][j][k].y = mpiBuf[j * LZ * 3 + k * 3 + 1];
-                v[dstX][j][k].z = mpiBuf[j * LZ * 3 + k * 3 + 2];
-            }
+            memcpy(&v[dstX][0][0], mpiBuf, sizeof(Vector) * LY * LZ); 
         };
 
         // periodic - Copy
@@ -397,14 +385,8 @@ class Field
     {
         auto MPICopyField = [this](Vector***& v, const int dstX, const int srcX, const bool reverse = false)
         {
-            for (int j = 0; j < LY; ++j)
-            for (int k = 0; k < LZ; ++k)
-            {
-                mpiBuf[j * LZ * 3 + k * 3 + 0] = v[srcX][j][k].x;
-                mpiBuf[j * LZ * 3 + k * 3 + 1] = v[srcX][j][k].y;
-                mpiBuf[j * LZ * 3 + k * 3 + 2] = v[srcX][j][k].z;
-            }
-
+            memcpy(mpiBuf, &v[srcX][0][0], sizeof(Vector) * LY * LZ);
+            
             int forward = (MPI::COMM_WORLD.Get_rank() + 1) % MPI::COMM_WORLD.Get_size();
             int backward = MPI::COMM_WORLD.Get_rank() - 1;
             if (backward < 0) backward = MPI::COMM_WORLD.Get_size() - 1;
@@ -418,14 +400,7 @@ class Field
                 MPI::COMM_WORLD.Sendrecv_replace(mpiBuf, 3 * LY * LZ, MPI::DOUBLE,
                     backward, 0, forward, 0, status);
 
-            for (int j = 0; j < LY; ++j)
-            for (int k = 0; k < LZ; ++k)
-            {
-                v[dstX][j][k].x = mpiBuf[j * LZ * 3 + k * 3 + 0];
-                v[dstX][j][k].y = mpiBuf[j * LZ * 3 + k * 3 + 1];
-                v[dstX][j][k].z = mpiBuf[j * LZ * 3 + k * 3 + 2];
-            }
-
+            memcpy(&v[dstX][0][0], mpiBuf, sizeof(Vector) * LY * LZ);
         };
         
         // periodic - Copy

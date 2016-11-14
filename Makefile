@@ -21,6 +21,10 @@ run-6:
 	make makedir 1>/dev/null 2>/dev/null 
 	mpirun -np 6 a.out
 
+run-10:
+	make makedir 1>/dev/null 2>/dev/null 
+	mpirun -np 10 a.out
+
 run-12:
 	make makedir 1>/dev/null 2>/dev/null 
 	mpirun -np 12 a.out
@@ -36,5 +40,7 @@ makedir:
 	mkdir -p data/f_e
 	mkdir -p data/f_b
 	mkdir -p data/f_j
+	mkdir -p data/ions
+	mkdir -p data/eles
 
 

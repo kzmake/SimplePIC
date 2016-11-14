@@ -29,6 +29,18 @@ void OutputProfile(std::vector<Plasma>& plasma, Field& field, Solver<SF>& solver
             pt.put("PIC.LX0", LX0);
             pt.put("PIC.LY0", LY0);
             pt.put("PIC.LZ0", LZ0);
+            
+            pt.put("PIC.LX", LX);
+            pt.put("PIC.LY", LY);
+            pt.put("PIC.LZ", LZ);
+
+#ifdef PIC_PML
+            pt.put("PIC.PML.L",    L);
+            pt.put("PIC.PML.M",    M);
+            pt.put("PIC.PML.R0",  R0);
+
+            pt.put("PIC.PML.SIGMA_MAX", SIGMA_MAX);
+#endif
 
             pt.put("PIC.timestep.max" , MAX_TIME_STEP);
             pt.put("PIC.timestep.step",   OUTPUT_STEP);
@@ -56,7 +68,7 @@ void OutputProfile(std::vector<Plasma>& plasma, Field& field, Solver<SF>& solver
             pt.add_child("PIC.particle", particles);
             pt.put("PIC.particle.size", plasma[0].p.size());
         }
-
+        
         boost::property_tree::write_json(filename, pt);
     }
 }
@@ -91,6 +103,7 @@ void Output(std::vector<Plasma>& plasma, Field& field, Solver<SF>& solver, Timer
         Vector v2;
 
         energyK[s].Zero();
+        energyR[s] = 0.0;
         std::vector<Particle> &p = plasma[s].p;
         for (unsigned long int n = 0; n < p.size(); ++n)
         {
@@ -153,8 +166,6 @@ void Output(std::vector<Plasma>& plasma, Field& field, Solver<SF>& solver, Timer
         fp = fopen(filename.c_str(), "w+");
 
         fwrite(&V[0][0][0], sizeof(double) * 3, LX*LY*LZ, fp);
-
-        //fwrite(&v[0][0][0], sizeof(double), LX*LY*LZ, fp);
         
         fclose(fp);
     };

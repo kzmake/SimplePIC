@@ -9,13 +9,13 @@
 
 namespace
 {
-    constexpr int NUM_DENS      = 100;
+    constexpr int NUM_DENS      = 1;
 
     constexpr double MASS_RATIO = 100.0;
     constexpr double ELE_MASS   = 0.0625;
     constexpr double ION_MASS   = ELE_MASS * MASS_RATIO;
 
-    constexpr double ELE_WPE    = 0.05; // wpe * delt <= 0
+    constexpr double ELE_WPE    = 0.05; // wpe * delt <= 0.1
     constexpr double ION_WPE    = std::sqrt(ELE_MASS / ION_MASS) * ELE_WPE;
 
     constexpr double ELE_Q      = - ELE_WPE * std::sqrt(ELE_MASS / (double)NUM_DENS);
@@ -31,22 +31,22 @@ namespace
 
     const std::string PATH("data/");
 
-    constexpr int MAX_TIME_STEP = 500;
-    constexpr int OUTPUT_STEP   = 1;
+    constexpr int MAX_TIME_STEP = 10;
+    constexpr int OUTPUT_STEP   = 10;
     constexpr int SORT_STEP = 50;
 
 #ifdef PIC_PML
-    constexpr int L  = 16;
+    constexpr int L  = 32;
     constexpr int M  = 4;
-    constexpr double R0 = 1.0e-8;
+    constexpr double R0 = 1.0e-10;
 
     constexpr double SIGMA_MAX = - std::log(R0) * (M + 1.0) * C / (2.0 * L);
 #endif
 
     // system
     constexpr int LX0 = 5;
-    constexpr int LY0 = 5;
-    constexpr int LZ0 = 128;
+    constexpr int LY0 = 32;
+    constexpr int LZ0 = 32;
 
 #ifdef PIC_PML
     constexpr int LX  = LX0 + 5;
@@ -73,9 +73,6 @@ namespace
     constexpr int Y1  = LY - 3;
     constexpr int Z1  = LZ - 3;
 #endif
-    
-    // sort
-    //constexpr int SORT_PREC = 10;
 };
 
 #endif
