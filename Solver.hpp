@@ -197,26 +197,20 @@ class Solver
     {
         auto MPIAddField = [this](Vector***& v, const int dstX, const int srcX, const bool reverse = false)
         {
-            for (int j = 0; j < LY; ++j)
-            for (int k = 0; k < LZ; ++k)
-            {
-                mpiBuf[j * LZ * 3 + k * 3 + 0] = v[srcX][j][k].x;
-                mpiBuf[j * LZ * 3 + k * 3 + 1] = v[srcX][j][k].y;
-                mpiBuf[j * LZ * 3 + k * 3 + 2] = v[srcX][j][k].z;
-            }
+            memcpy(mpiBuf, &v[srcX][0][0], sizeof(Vector) * LY * LZ);
 
-            int forward = (MPI::COMM_WORLD.Get_rank() + 1) % MPI::COMM_WORLD.Get_size();
-            int backward = MPI::COMM_WORLD.Get_rank() - 1;
-            if (backward < 0) backward = MPI::COMM_WORLD.Get_size() - 1;
-
-            MPI::Status status;
+            int destRank, srcRank;
             
             if (reverse != true)
-                MPI::COMM_WORLD.Sendrecv_replace(mpiBuf, 3 * LY * LZ, MPI::DOUBLE,
-                    forward, 0, backward, 0, status);
+                MPI_Cart_shift(comm, 0,  1, &srcRank, &destRank);
             else
-                MPI::COMM_WORLD.Sendrecv_replace(mpiBuf, 3 * LY * LZ, MPI::DOUBLE,
-                    backward, 0, forward, 0, status);
+                MPI_Cart_shift(comm, 0, -1, &srcRank, &destRank);
+            
+            MPI_Status status;
+            MPI_Sendrecv_replace(mpiBuf, 3 * LY * LZ, MPI_DOUBLE,
+                    destRank, 203, 
+                    srcRank,  203,
+                    comm, &status);
 
             for (int j = 0; j < LY; ++j)
             for (int k = 0; k < LZ; ++k)

@@ -9,8 +9,11 @@
 template<Shape SF>
 void OutputProfile(std::vector<Plasma>& plasma, Field& field, Solver<SF>& solver)
 {
-
-    if (MPI::COMM_WORLD.Get_rank() == 0)
+    int rank, size;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &size);
+    
+    if (rank == 0)
     {
         std::string filename("");
         filename += PATH + "profile.json";
@@ -18,7 +21,7 @@ void OutputProfile(std::vector<Plasma>& plasma, Field& field, Solver<SF>& solver
         // JSON
         boost::property_tree::ptree pt;
         {
-            pt.put("MPI.size", MPI::COMM_WORLD.Get_size());
+            pt.put("MPI.size", size);
 
             pt.put("PIC.density",    NUM_DENS);
             pt.put("PIC.C"      ,           C);
@@ -75,7 +78,10 @@ void OutputProfile(std::vector<Plasma>& plasma, Field& field, Solver<SF>& solver
 
 template<Shape SF>
 void Output(std::vector<Plasma>& plasma, Field& field, Solver<SF>& solver, Timer& t, const int ts)
-{    
+{
+    int rank;
+    MPI_Comm_rank(comm, &rank);
+    
     Vector energyB, energyE;
 
     energyB.Zero();
@@ -119,13 +125,22 @@ void Output(std::vector<Plasma>& plasma, Field& field, Solver<SF>& solver, Timer
         energyR[s] *= (plasma[s].m * C2);
     }
 
-    auto MPIReduceSumEnergy = [](auto& energy)
+    auto MPIReduceSumEnergy = [](Vector& energy)
     {
-        double totalEnergy[3] = {};
+        Vector totalEnergy;
 
-        MPI::COMM_WORLD.Allreduce(&energy, &totalEnergy, sizeof(energy)/sizeof(double), MPI::DOUBLE, MPI::SUM);
+        MPI_Allreduce(&energy, &totalEnergy, 3, MPI_DOUBLE, MPI_SUM, comm);
 
-        memcpy(&energy, &totalEnergy, sizeof(energy));
+        memcpy(&energy, &totalEnergy, sizeof(Vector));
+    };
+
+    auto MPIReduceSumEnergyR = [](double& energy)
+    {
+        double totalEnergy;
+
+        MPI_Allreduce(&energy, &totalEnergy, 1, MPI_DOUBLE, MPI_SUM, comm);
+
+        memcpy(&energy, &totalEnergy, sizeof(double));
     };
 
     MPIReduceSumEnergy(energyB);
@@ -134,7 +149,7 @@ void Output(std::vector<Plasma>& plasma, Field& field, Solver<SF>& solver, Timer
     for(unsigned int s = 0; s < plasma.size(); ++s)
     {
         MPIReduceSumEnergy(energyK[s]);
-        MPIReduceSumEnergy(energyR[s]);
+        MPIReduceSumEnergyR(energyR[s]);
     }
 
     auto WriteEnegy = [](FILE*& fp, const std::string& filename, const Vector& v, const int ts)
@@ -155,11 +170,11 @@ void Output(std::vector<Plasma>& plasma, Field& field, Solver<SF>& solver, Timer
         if(ts == MAX_TIME_STEP) fclose(fp);
     };
 
-    auto WriteField = [](const std::string s, Vector*** V, const int ts)
+    auto WriteField = [](const std::string s, Vector*** V, const int ts, const int rank)
     {
         char cts[8], crank[4];
         snprintf(cts, sizeof(cts), "%06d", ts);
-        snprintf(crank, sizeof(crank), "%02d", MPI::COMM_WORLD.Get_rank());
+        snprintf(crank, sizeof(crank), "%02d", rank);
         std::string filename("");
         filename += PATH + s + "/" + s + cts + "_r" + crank;
         FILE *fp;
@@ -170,7 +185,7 @@ void Output(std::vector<Plasma>& plasma, Field& field, Solver<SF>& solver, Timer
         fclose(fp);
     };
 
-    if (MPI::COMM_WORLD.Get_rank() == 0)
+    if (rank == 0)
     {
         static const std::string kFilenameEnergyIonsK = PATH + "energy_ions_k" + ".txt";
         static const std::string kFilenameEnergyElesK = PATH + "energy_eles_k" + ".txt";
@@ -197,9 +212,9 @@ void Output(std::vector<Plasma>& plasma, Field& field, Solver<SF>& solver, Timer
 
     if (ts % OUTPUT_STEP == 0)
     {
-        WriteField("f_e",  field.E, ts);
-        WriteField("f_b",  field.B, ts);
-        WriteField("f_j", solver.J, ts);
+        WriteField("f_e",  field.E, ts, rank);
+        WriteField("f_b",  field.B, ts, rank);
+        WriteField("f_j", solver.J, ts, rank);
     }
 
     auto WriteTimer = [](FILE*& fp, const std::string& filename, const std::string t, const int ts)
@@ -211,7 +226,7 @@ void Output(std::vector<Plasma>& plasma, Field& field, Solver<SF>& solver, Timer
         if(ts == MAX_TIME_STEP) fclose(fp);
     };
 
-    if (MPI::COMM_WORLD.Get_rank() == 0)
+    if (rank == 0)
     {
         static const std::string kTimer = PATH + "timer" + ".txt";
         static FILE* timer_fp = nullptr;

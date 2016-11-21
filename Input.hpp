@@ -9,7 +9,10 @@
 #if 1
 void Input(std::vector<Plasma>& p, Field& f)
 {
-    int seed = RANDOM_SEED + MPI::COMM_WORLD.Get_rank();
+    int rank;
+    MPI_Comm_rank(comm, &rank);
+
+    int seed = RANDOM_SEED + rank;
 
     const double wpe = ELE_WPE;
 
@@ -43,7 +46,7 @@ void Input(std::vector<Plasma>& p, Field& f)
         return sqrt(-2.0*log(alpha)) * cos(2.0*M_PI*beta);
     };
 
-    long int id = MPI::COMM_WORLD.Get_rank();
+    long int id = rank;
     for (int i = X0; i < X1; ++i)
 	for (int j = Y0; j < Y1; ++j)
     for (int k = Z0; k < Z1; ++k)

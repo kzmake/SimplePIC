@@ -8,6 +8,8 @@
 
 using Timer = std::vector<boost::timer::cpu_timer>;
 
+MPI_Comm comm;
+
 #include "Param.hpp"
 
 #include "Plasma.hpp"
@@ -20,8 +22,20 @@ using Timer = std::vector<boost::timer::cpu_timer>;
 
 int main(int argc, char **argv)
 {
+    MPI_Init(&argc, &argv);
 
-    MPI::Init(argc, argv);
+    int dims[1] = {};
+    int periods[1] = {true};
+
+    int rank, size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    MPI_Dims_create(size, 1, dims);
+    MPI_Cart_create(MPI_COMM_WORLD, 1, dims, periods, true, &comm);
+
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &size);
 
     Field f;
     std::vector<Plasma> p;
@@ -41,11 +55,11 @@ int main(int argc, char **argv)
 
     for(int ts = 1; ts <= MAX_TIME_STEP; ++ts)
     {
-        MPI::COMM_WORLD.Barrier();
+        MPI_Barrier(comm);
 
         t[0].start();
 
-        if (MPI::COMM_WORLD.Get_rank() == 0)
+        if (rank == 0)
         {
             printf("%d\n", ts);
         }
@@ -106,8 +120,8 @@ int main(int argc, char **argv)
         
         t[2].stop();
 
-        MPI::COMM_WORLD.Barrier();
-
+        MPI_Barrier(comm);
+        
         t[0].stop();
         t[4].start();
         
@@ -118,7 +132,7 @@ int main(int argc, char **argv)
         }
         t[4].stop();
 
-        if (MPI::COMM_WORLD.Get_rank() == 0)
+        if (rank == 0)
         {
             std::string result = t[0].format(3, "total：%ws")
                 + t[1].format(3, " | DensityDecomposition：%ws")
@@ -132,7 +146,7 @@ int main(int argc, char **argv)
         Output(p, f, s, t, ts);
         t[5].stop();
 
-        if (MPI::COMM_WORLD.Get_rank() == 0)
+        if (rank == 0)
         {
             std::string result = t[5].format(3, "output：%ws");
             printf("  %s\n", result.c_str());
@@ -141,7 +155,7 @@ int main(int argc, char **argv)
 
     }
 
-    MPI::Finalize();
+    MPI_Finalize();
 
     return 0;
 }

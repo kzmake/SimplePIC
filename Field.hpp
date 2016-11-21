@@ -328,20 +328,20 @@ class Field
     {
         auto MPICopyField = [this](Vector***& v, const int dstX, const int srcX, const bool reverse = false)
         {
+            int destRank, srcRank;
+            
             memcpy(mpiBuf, &v[srcX][0][0], sizeof(Vector) * LY * LZ);
             
-            int forward = (MPI::COMM_WORLD.Get_rank() + 1) % MPI::COMM_WORLD.Get_size();
-            int backward = MPI::COMM_WORLD.Get_rank() - 1;
-            if (backward < 0) backward = MPI::COMM_WORLD.Get_size() - 1;
-
-            MPI::Status status;
-            
             if (reverse != true)
-                MPI::COMM_WORLD.Sendrecv_replace(mpiBuf, 3 * LY * LZ, MPI::DOUBLE,
-                    forward, 0, backward, 0, status);
+                MPI_Cart_shift(comm, 0,  1, &srcRank, &destRank);
             else
-                MPI::COMM_WORLD.Sendrecv_replace(mpiBuf, 3 * LY * LZ, MPI::DOUBLE,
-                    backward, 0, forward, 0, status);
+                MPI_Cart_shift(comm, 0, -1, &srcRank, &destRank);
+            
+            MPI_Status status;
+            MPI_Sendrecv_replace(mpiBuf, 3 * LY * LZ, MPI_DOUBLE,
+                    destRank, 101, 
+                    srcRank,  101,
+                    comm, &status);
 
             memcpy(&v[dstX][0][0], mpiBuf, sizeof(Vector) * LY * LZ); 
         };
@@ -385,22 +385,22 @@ class Field
     {
         auto MPICopyField = [this](Vector***& v, const int dstX, const int srcX, const bool reverse = false)
         {
+            int destRank, srcRank;
+            
             memcpy(mpiBuf, &v[srcX][0][0], sizeof(Vector) * LY * LZ);
             
-            int forward = (MPI::COMM_WORLD.Get_rank() + 1) % MPI::COMM_WORLD.Get_size();
-            int backward = MPI::COMM_WORLD.Get_rank() - 1;
-            if (backward < 0) backward = MPI::COMM_WORLD.Get_size() - 1;
-            
-            MPI::Status status; 
-            
             if (reverse != true)
-                MPI::COMM_WORLD.Sendrecv_replace(mpiBuf, 3 * LY * LZ, MPI::DOUBLE,
-                     forward, 0, backward, 0, status);
+                MPI_Cart_shift(comm, 0,  1, &srcRank, &destRank);
             else
-                MPI::COMM_WORLD.Sendrecv_replace(mpiBuf, 3 * LY * LZ, MPI::DOUBLE,
-                    backward, 0, forward, 0, status);
+                MPI_Cart_shift(comm, 0, -1, &srcRank, &destRank);
+            
+            MPI_Status status;
+            MPI_Sendrecv_replace(mpiBuf, 3 * LY * LZ, MPI_DOUBLE,
+                    destRank, 102, 
+                    srcRank,  102,
+                    comm, &status);
 
-            memcpy(&v[dstX][0][0], mpiBuf, sizeof(Vector) * LY * LZ);
+            memcpy(&v[dstX][0][0], mpiBuf, sizeof(Vector) * LY * LZ); 
         };
         
         // periodic - Copy

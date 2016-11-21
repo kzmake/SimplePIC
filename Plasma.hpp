@@ -52,40 +52,29 @@ class Plasma
 
         auto MPIMoveParticle = [this](std::vector<Particle>& p, const bool reverse = false)
         {
-            unsigned long int sendSize = p.size();
-            unsigned long int recvSize = 0;
+            long sendSize = p.size();
+            long recvSize = 0;
 
-            mpiSendBuf.resize(7 * sendSize);
+            int destRank, srcRank;
 
-            memcpy(&mpiSendBuf[0], &p[0], sizeof(Particle) * sendSize);
-
-            int forward = (MPI::COMM_WORLD.Get_rank() + 1) % MPI::COMM_WORLD.Get_size();
-            int backward = MPI::COMM_WORLD.Get_rank() - 1;
-            if (backward < 0) backward = MPI::COMM_WORLD.Get_size() - 1;
-
-            MPI::Status status;
+            if (reverse != true)
+                MPI_Cart_shift(comm, 0,  1, &srcRank, &destRank);
+            else
+                MPI_Cart_shift(comm, 0, -1, &srcRank, &destRank);
             
-            if (reverse != true)
-                MPI::COMM_WORLD.Sendrecv(
-                        &sendSize, 1, MPI::INT,  forward, 1,
-                        &recvSize, 1, MPI::INT, backward, 1, status);
-            else
-                MPI::COMM_WORLD.Sendrecv(
-                        &sendSize, 1, MPI::INT, backward, 1,
-                        &recvSize, 1, MPI::INT,  forward, 1, status);
+            MPI_Status status;
+            MPI_Sendrecv(&sendSize, 1, MPI_LONG, destRank, 201,
+                         &recvSize, 1, MPI_LONG,  srcRank, 201,
+                         comm, &status);
 
+            mpiRecvBuf.reserve(recvSize * 7);
+            mpiRecvBuf.resize(recvSize * 7);
 
-            mpiRecvBuf.resize(7 * recvSize);
+            MPI_Sendrecv(&p[0], sendSize * 7, MPI_DOUBLE, destRank, 202,
+                &mpiRecvBuf[0], recvSize * 7, MPI_DOUBLE,  srcRank, 202,
+                comm, &status);
 
-            if (reverse != true)
-                MPI::COMM_WORLD.Sendrecv(
-                        &mpiSendBuf[0], sendSize * 7, MPI::DOUBLE,  forward, 1,
-                        &mpiRecvBuf[0], recvSize * 7, MPI::DOUBLE, backward, 1, status);
-            else
-                MPI::COMM_WORLD.Sendrecv(
-                        &mpiSendBuf[0], sendSize * 7, MPI::DOUBLE, backward, 1,
-                        &mpiRecvBuf[0], recvSize * 7, MPI::DOUBLE,  forward, 1, status);
-
+            p.reserve(recvSize);
             p.resize(recvSize);
 
             memcpy(&p[0], &mpiRecvBuf[0], sizeof(Particle) * recvSize);
