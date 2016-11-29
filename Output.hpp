@@ -6,8 +6,9 @@
 #include <boost/foreach.hpp>
 #include <boost/optional.hpp>
 
-template<Shape SF>
-void OutputProfile(std::vector<Plasma>& plasma, Field& field, Solver<SF>& solver)
+#include "Param.hpp"
+
+void OutputProfile(std::vector<Plasma>& plasma, Field& field, Solver& solver)
 {
     int rank, size;
     MPI_Comm_rank(comm, &rank);
@@ -27,7 +28,7 @@ void OutputProfile(std::vector<Plasma>& plasma, Field& field, Solver<SF>& solver
             pt.put("PIC.C"      ,           C);
             pt.put("PIC.rseed"  , RANDOM_SEED);
 
-            pt.put("PIC.shapefactor", SF);
+            pt.put("PIC.shapefactor", 2);
 
             pt.put("PIC.LX0", LX0);
             pt.put("PIC.LY0", LY0);
@@ -76,8 +77,7 @@ void OutputProfile(std::vector<Plasma>& plasma, Field& field, Solver<SF>& solver
     }
 }
 
-template<Shape SF>
-void Output(std::vector<Plasma>& plasma, Field& field, Solver<SF>& solver, Timer& t, const int ts)
+void Output(std::vector<Plasma>& plasma, Field& field, Solver& solver, Timer& t, const int ts)
 {
     int rank;
     MPI_Comm_rank(comm, &rank);
@@ -104,7 +104,7 @@ void Output(std::vector<Plasma>& plasma, Field& field, Solver<SF>& solver, Timer
 
     Vector energyK[2];
     double energyR[2];
-    for(unsigned int s = 0; s < plasma.size(); ++s)
+    for (unsigned int s = 0; s < plasma.size(); ++s)
     {
         Vector v2;
 
@@ -236,3 +236,4 @@ void Output(std::vector<Plasma>& plasma, Field& field, Solver<SF>& solver, Timer
 }
 
 #endif
+

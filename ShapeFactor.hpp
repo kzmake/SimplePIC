@@ -3,36 +3,36 @@
 
 #include <cmath>
 
-enum Shape
+enum class Shape : int
 {
     // Shape
     NGP = 0,  // 0th
     CIC = 1,  // 1st
     TSC = 2,  // 2nd
-
-    Spline = TSC,
 };
 
-template<Shape, int N>
+template<Shape>
 class ShapeFactor
 {
   public:
-    void operator()(double (&sf)[N], const double rx);
-    void operator()(double (&sf)[N], const double rx, const int shift);
+    void operator()(double (&sf)[3], const double rx);
+
+    void operator()(double (&sf)[5], const double rx);
+    void operator()(double (&sf)[5], const double rx, const int shift);
 
 };
 
-template<>inline void ShapeFactor<NGP, 3>::operator()(double (&sf)[3], const double rx)
+template<> inline void ShapeFactor<Shape::NGP>::operator()(double (&sf)[3], const double rx)
 {
     // fix me
 }
 
-template<> inline void ShapeFactor<NGP, 5>::operator()(double (&sf)[5], const double rx)
+template<> inline void ShapeFactor<Shape::NGP>::operator()(double (&sf)[5], const double rx)
 {
     // fix me
 }
 
-template<> inline void ShapeFactor<CIC, 3>::operator()(double (&sf)[3], const double rx)
+template<> inline void ShapeFactor<Shape::CIC>::operator()(double (&sf)[3], const double rx)
 {
     int i = int(rx);
     double dx = rx - (i + .5);
@@ -45,7 +45,7 @@ template<> inline void ShapeFactor<CIC, 3>::operator()(double (&sf)[3], const do
     sf[1+(int)copysign(1, dx)] = ax;
 }
 
-template<> inline void ShapeFactor<CIC, 5>::operator()(double (&sf)[5], const double rx)
+template<> inline void ShapeFactor<Shape::CIC>::operator()(double (&sf)[5], const double rx)
 {
     int i = int(rx);
     double dx = rx - (i + .5);
@@ -60,7 +60,7 @@ template<> inline void ShapeFactor<CIC, 5>::operator()(double (&sf)[5], const do
     sf[2+(int)copysign(1, dx)] = ax;
 }
 
-template<> inline void ShapeFactor<CIC, 5>::operator()(double (&sf)[5], const double rx, const int shift)
+template<> inline void ShapeFactor<Shape::CIC>::operator()(double (&sf)[5], const double rx, const int shift)
 {
     int i = int(rx);
     double dx = rx - (i + .5);
@@ -76,7 +76,7 @@ template<> inline void ShapeFactor<CIC, 5>::operator()(double (&sf)[5], const do
     sf[2 + shift + (int)copysign(1, dx)] = ax;
 }
 
-template<> inline void ShapeFactor<TSC, 3>::operator()(double (&sf)[3], const double rx)
+template<> inline void ShapeFactor<Shape::TSC>::operator()(double (&sf)[3], const double rx)
 {
     int i = int(rx);
     double dx = rx - (i + .5);
@@ -86,7 +86,7 @@ template<> inline void ShapeFactor<TSC, 3>::operator()(double (&sf)[3], const do
     sf[2] = 0.5 * (0.5+dx)*(0.5+dx);
 }
 
-template<> inline void ShapeFactor<TSC, 5>::operator()(double (&sf)[5], const double rx)
+template<> inline void ShapeFactor<Shape::TSC>::operator()(double (&sf)[5], const double rx)
 {
     int i = int(rx);
     double dx = rx - (i + .5);
@@ -98,8 +98,7 @@ template<> inline void ShapeFactor<TSC, 5>::operator()(double (&sf)[5], const do
     sf[4] = 0.0;
 }
 
-
-template<> inline void ShapeFactor<TSC, 5>::operator()(double (&sf)[5], const double rx, const int shift)
+template<> inline void ShapeFactor<Shape::TSC>::operator()(double (&sf)[5], const double rx, const int shift)
 {
     int i = int(rx);
     double dx = rx - (i + .5);
@@ -113,6 +112,5 @@ template<> inline void ShapeFactor<TSC, 5>::operator()(double (&sf)[5], const do
     sf[2 + shift] = 0.75 - dx*dx;
     sf[3 + shift] = 0.5 * (0.5+dx)*(0.5+dx);
 }
-
 
 #endif

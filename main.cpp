@@ -3,19 +3,16 @@
 #include <vector>
 
 #include <boost/timer/timer.hpp>
-
-#include <mpi.h>
-
 using Timer = std::vector<boost::timer::cpu_timer>;
 
+#include <mpi.h>
 MPI_Comm comm;
 
 #include "Param.hpp"
 
-#include "Plasma.hpp"
-#include "Field.hpp"
-#include "Solver.hpp"
-#include "ShapeFactor.hpp"
+#include "PlasmaFrame.hpp"
+#include "FieldFrame.hpp"
+#include "SolverFrame.hpp"
 
 #include "Input.hpp"
 #include "Output.hpp"
@@ -23,6 +20,10 @@ MPI_Comm comm;
 int main(int argc, char **argv)
 {
     MPI_Init(&argc, &argv);
+
+    Field f;
+    std::vector<Plasma> p;
+    Solver s;
 
     int dims[1] = {};
     int periods[1] = {true};
@@ -36,11 +37,6 @@ int main(int argc, char **argv)
 
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &size);
-
-    Field f;
-    std::vector<Plasma> p;
-    Solver<TSC> s;
-    //Solver<CIC> s;
     
     Timer t(6);
     
@@ -48,6 +44,12 @@ int main(int argc, char **argv)
         t[0].start();
         Input(p, f);
         t[0].stop();
+
+        if (rank == 0)
+        {
+            std::string result = t[0].format(3, "input：%ws");
+            printf("  %s\n", result.c_str());
+        }
 
         OutputProfile(p, f, s);
         Output(p, f, s, t, 0);
@@ -83,9 +85,6 @@ int main(int argc, char **argv)
 
         f.UpdateB();
         
-#ifdef PIC_PML
-        f.BoundaryB_PML();
-#endif
         f.BoundaryB();
         
         f.UpdateE();
@@ -105,9 +104,6 @@ int main(int argc, char **argv)
         s.BoundaryJ();
         s.UpdateEbyJ(f);
 
-#ifdef PIC_PML
-        f.BoundaryE_PML();
-#endif  
         f.BoundaryE();
         t[3].stop();
         t[2].resume();

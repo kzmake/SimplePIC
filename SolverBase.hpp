@@ -1,28 +1,22 @@
-#ifndef SIMPLE_PIC_SOLVER_HPP
-#define SIMPLE_PIC_SOLVER_HPP
+#ifndef SIMPLE_PIC_SOLVER_BASE_HPP
+#define SIMPLE_PIC_SOLVER_BASE_HPP
 
 #include <vector>
 #include <cstdlib>
 
 #include "Param.hpp"
 
-#include "Vector.hpp"
-#include "ShapeFactor.hpp"
-#include "Plasma.hpp"
-#include "Field.hpp"
-
-
 template<Shape S>
-class Solver
+class SolverBase
 {
   public:
-    ShapeFactor<S, 3> sf3;
-    ShapeFactor<S, 5> sf5;
+    ShapeFactor<S> sf;
 
     Vector*** J;
     Vector*** Bc;
     Vector*** Ec;
 
+  private:
     Vector*** J0;
     Vector*** J0_Zero;
 
@@ -30,10 +24,8 @@ class Solver
     double ds[3][5];
     double w[5][5][5][3];
 
-    double* mpiBuf;
-
-  public:
-    Solver()
+  protected:
+    SolverBase()
     {
         try
         {
@@ -43,19 +35,15 @@ class Solver
 
             J0      = CreateArray(6, 6, 6);
             J0_Zero = CreateArray(6, 6, 6);
-
-            mpiBuf = new double [3 * LY * LZ];
         }
         catch(std::bad_alloc)
         {
-            fprintf(stderr, "エラー: bad_alloc 動的メモリ確保エラー: %s\n", __FILE__); 
+            fprintf(stderr, "Error: bad_alloc : %s\n", __FILE__); 
             DeleteArray(J);
             DeleteArray(Ec);
 
             DeleteArray(J0);
             DeleteArray(J0_Zero);
-
-            delete[] mpiBuf;
             
             abort();
         }
@@ -79,7 +67,8 @@ class Solver
         }
     }
     
-    ~Solver()
+  public:
+    ~SolverBase()
     {
         DeleteArray(J);
         DeleteArray(Ec);
@@ -87,35 +76,6 @@ class Solver
 
         DeleteArray(J0);
         DeleteArray(J0_Zero);
-
-        delete[] mpiBuf;
-    }
-
-    Vector*** CreateArray(const int x, const int y, const int z)
-    {
-        Vector*** v  = new Vector** [x];
-        v[0]         = new Vector*  [x * y];
-        v[0][0]      = new Vector   [x * y * z]();
-
-        for (int i = 0; i < x; ++i)
-        {
-            v[i] = v[0] + i * y;
-
-            for (int j = 0; j < y; ++j)
-            {
-                v[i][j] = v[0][0] + i * y * z + j * z;
-            }
-        }
-
-        return v;
-    }
-
-    void DeleteArray(Vector***& v)
-    {
-        delete[] v[0][0];
-        delete[] v[0];
-        delete[] v;
-        v = nullptr;
     }
 
     void DensityDecomposition(Plasma& plasma, Field& field)
@@ -127,7 +87,7 @@ class Solver
         int imin, imax, jmin, jmax, kmin, kmax;
 
         auto pSize = p.size();
-        for (unsigned long int n = 0; n < pSize; ++n)
+        for (unsigned long n = 0; n < pSize; ++n)
         {
             Vector r0 = p[n].r;
             Vector r1 = p[n].r + p[n].v;
@@ -136,13 +96,13 @@ class Solver
             jShift = int(r1.y) - int(r0.y);
             kShift = int(r1.z) - int(r0.z);
 
-            sf5(s0[0], r0.x);
-            sf5(s0[1], r0.y);
-            sf5(s0[2], r0.z);
+            sf(s0[0], r0.x);
+            sf(s0[1], r0.y);
+            sf(s0[2], r0.z);
 
-            sf5(ds[0], r1.x, iShift);
-            sf5(ds[1], r1.y, jShift);
-            sf5(ds[2], r1.z, kShift);
+            sf(ds[0], r1.x, iShift);
+            sf(ds[1], r1.y, jShift);
+            sf(ds[2], r1.z, kShift);
 
             for(int i = 1; i <= 3; ++i)
             {
@@ -193,66 +153,6 @@ class Solver
         }
     }
     
-    void BoundaryJ()
-    {
-        auto MPIAddField = [this](Vector***& v, const int dstX, const int srcX, const bool reverse = false)
-        {
-            memcpy(mpiBuf, &v[srcX][0][0], sizeof(Vector) * LY * LZ);
-
-            int destRank, srcRank;
-            
-            if (reverse != true)
-                MPI_Cart_shift(comm, 0,  1, &srcRank, &destRank);
-            else
-                MPI_Cart_shift(comm, 0, -1, &srcRank, &destRank);
-            
-            MPI_Status status;
-            MPI_Sendrecv_replace(mpiBuf, 3 * LY * LZ, MPI_DOUBLE,
-                    destRank, 203, 
-                    srcRank,  203,
-                    comm, &status);
-
-            for (int j = 0; j < LY; ++j)
-            for (int k = 0; k < LZ; ++k)
-            {
-                v[dstX][j][k].x += mpiBuf[j * LZ * 3 + k * 3 + 0];
-                v[dstX][j][k].y += mpiBuf[j * LZ * 3 + k * 3 + 1];
-                v[dstX][j][k].z += mpiBuf[j * LZ * 3 + k * 3 + 2];
-            }
-
-        };
-
-        // periodic - Add
-        // X
-        {
-            MPIAddField(J, X0+0, X1+0, false);
-            MPIAddField(J, X0+1, X1+1, false);
-            MPIAddField(J, X0+2, X1+2, false);
-            MPIAddField(J, X1-1, X0-1, true);
-            MPIAddField(J, X1-2, X0-2, true); // ?
-        }
-        // Y
-        for (int i = 0; i < LX; ++i)
-        for (int k = 0; k < LZ; ++k)
-        {
-            J[i][Y0+0][k] += J[i][Y1+0][k];
-            J[i][Y0+1][k] += J[i][Y1+1][k];
-            J[i][Y0+2][k] += J[i][Y1+2][k];
-            J[i][Y1-1][k] += J[i][Y0-1][k];
-            J[i][Y1-2][k] += J[i][Y0-2][k]; // ?
-        }
-        // Z
-        for (int i = 0; i < LX; ++i)
-        for (int j = 0; j < LY; ++j)
-        {
-            J[i][j][Z0+0] += J[i][j][Z1+0];
-            J[i][j][Z0+1] += J[i][j][Z1+1];
-            J[i][j][Z0+2] += J[i][j][Z1+2];
-            J[i][j][Z1-1] += J[i][j][Z0-1];
-            J[i][j][Z1-2] += J[i][j][Z0-2]; // ?
-        }
-    }  
-
     void UpdateEbyJ(Field& field)
     {
         for (int i = X0; i < X1; ++i)
@@ -302,9 +202,9 @@ class Solver
         std::vector<Particle> &p = plasma.p;
         for (unsigned long int n = 0; n < p.size(); ++n)
         {
-            sf3(sx, p[n].r.x);
-            sf3(sy, p[n].r.y);
-            sf3(sz, p[n].r.z);
+            sf(sx, p[n].r.x);
+            sf(sy, p[n].r.y);
+            sf(sz, p[n].r.z);
 
             int ii = int(p[n].r.x) - 1;
             int jj = int(p[n].r.y) - 1;
@@ -343,5 +243,35 @@ class Solver
             p[n].v = u_minus * gamma;
         } 
     }
+    
+  protected:
+    Vector*** CreateArray(const int x, const int y, const int z)
+    {
+        Vector*** v  = new Vector** [x];
+        v[0]         = new Vector*  [x * y];
+        v[0][0]      = new Vector   [x * y * z]();
+
+        for (int i = 0; i < x; ++i)
+        {
+            v[i] = v[0] + i * y;
+
+            for (int j = 0; j < y; ++j)
+            {
+                v[i][j] = v[0][0] + i * y * z + j * z;
+            }
+        }
+
+        return v;
+    }
+
+    void DeleteArray(Vector***& v)
+    {
+        delete[] v[0][0];
+        delete[] v[0];
+        delete[] v;
+        v = nullptr;
+    }
 };
+
 #endif
+
